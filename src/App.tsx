@@ -164,7 +164,8 @@ type SectionProps = {
   right?: React.ReactNode
   children?: React.ReactNode   // <- clave para que acepte children
 }
-  const Section = ({ title, right, children }: SectionProps) => (
+  // ==== Section (sin React.FC, con children tipado) ====
+const Section = ({ title, right, children }: SectionProps) => (
   <div className="mb-4">
     <div className="flex items-center justify-between mb-2">
       <h2 className="text-lg font-semibold">{title}</h2>
@@ -172,7 +173,8 @@ type SectionProps = {
     </div>
     {children}
   </div>
-);
+)
+;
 
 const Pill: React.FC<{ text: string; className?: string }> = ({ text, className }) => (
   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
