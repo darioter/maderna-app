@@ -159,13 +159,18 @@ function savePin(pin: string) {
 // =============================
 // UI helpers
 // =============================
-const Section: React.FC<{ title: string; right?: React.ReactNode }> = ({ title, right, children }) => (
+type SectionProps = {
+  title: string
+  right?: React.ReactNode
+  children?: React.ReactNode   // <- clave para que acepte children
+}
+  const Section = ({ title, right, children }: SectionProps) => (
   <div className="mb-4">
     <div className="flex items-center justify-between mb-2">
       <h2 className="text-lg font-semibold">{title}</h2>
       {right}
     </div>
-    <div className="bg-white rounded-2xl shadow p-3">{children}</div>
+    {children}
   </div>
 );
 
