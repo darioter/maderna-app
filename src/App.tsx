@@ -487,7 +487,7 @@ function handleDeleteOrderClick(id: string) {
     setEditing(null);
   }
 
-  // =============================
+   // =============================
   // Render
   // =============================
   return (
