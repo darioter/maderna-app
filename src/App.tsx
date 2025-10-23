@@ -511,56 +511,74 @@ export default function App() {
         {tab === "comanda" && (
           <div>
             <Section title="Comanda rápida" right={<Pill text={`Ítems: ${draftLines.length}`} />}>
-              <div className="space-y-2">
-                {draftLines.map((l) => {
-                  const p = products.find((x) => x.id === l.productId);
-                  const isUnid = p ? unitLabel(p) === "unid" : false;
-                  return (
-                    <div key={l.id} className="flex items-center gap-2 p-2 border rounded-xl">
-                      <select
-                        className="flex-1 px-2 py-2 rounded-lg border"
-                        value={l.productId}
-                        onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x)))}
-                      >
-                        {products.filter((x) => x.active).map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-  type="number"
-  className="w-20 sm:w-24 px-2 py-2 rounded-lg border text-right flex-shrink-0"
-  value={l.qtyKg}
-  onChange={(e) =>
-    setDraftLines((ds) =>
-      ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x))
-    )
-  }
-  min={isUnid ? 1 : 0.1}
-  step={isUnid ? 1 : 0.1}
-/>
+  <div className="space-y-2">
+    {draftLines.map((l) => {
+      const p = products.find((x) => x.id === l.productId);
+      const isUnid = p ? unitLabel(p) === "unid" : false;
 
-                      <span className="text-xs text-gray-500">{p ? unitLabel(p) : "kg"}</span>
-                      <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => removeDraftLine(l.id)}>
-                        Quitar
-                      </button>
-                    </div>
-                  );
-                })}
-                <button className="w-full py-2 rounded-xl bg-gray-100" onClick={() => addDraftLine()}>
-                  + Agregar ítem
-                </button>
-              </div>
+      return (
+        <div key={l.id} className="flex flex-wrap items-center gap-2 p-2 border rounded-xl">
+          <select
+            className="flex-1 min-w-0 basis-[60%] sm:basis-auto px-2 py-2 rounded-lg border"
+            value={l.productId}
+            onChange={(e) =>
+              setDraftLines((ds) =>
+                ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x))
+              )
+            }
+          >
+            {products.filter((x) => x.active).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
 
-              <div className="flex items-center justify-between mt-3">
-                <div className="text-sm">Total</div>
-                <div className="text-xl font-bold">{currency(draftTotal)}</div>
-              </div>
-              <button className="w-full mt-3 py-3 rounded-2xl bg-emerald-600 text-white font-semibold shadow" onClick={issueOrder}>
-                Generar comanda
-              </button>
-            </Section>
+          <input
+            type="number"
+            inputMode="decimal"
+            className="w-20 sm:w-24 px-2 py-2 rounded-lg border text-right flex-shrink-0"
+            value={l.qtyKg}
+            onChange={(e) =>
+              setDraftLines((ds) =>
+                ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x))
+              )
+            }
+            min={isUnid ? 1 : 0.1}
+            step={isUnid ? 1 : 0.1}
+          />
+
+          <span className="text-xs text-gray-500 flex-shrink-0">
+            {p ? unitLabel(p) : "kg"}
+          </span>
+
+          <button
+            className="px-2 py-1 text-xs bg-red-100 rounded-lg ml-auto sm:ml-0 flex-shrink-0"
+            onClick={() => removeDraftLine(l.id)}
+          >
+            Quitar
+          </button>
+        </div>
+      );
+    })}
+
+    <button className="w-full py-2 rounded-xl bg-gray-100" onClick={() => addDraftLine()}>
+      + Agregar ítem
+    </button>
+  </div>
+
+  <div className="flex items-center justify-between mt-3">
+    <div className="text-sm">Total</div>
+    <div className="text-xl font-bold">{currency(draftTotal)}</div>
+  </div>
+
+  <button
+    className="w-full mt-3 py-3 rounded-2xl bg-emerald-600 text-white font-semibold shadow"
+    onClick={issueOrder}
+  >
+    Generar comanda
+  </button>
+</Section>
 
             <Section title="Últimas ventas">
               <div className="space-y-2 max-h-64 overflow-auto pr-1">
