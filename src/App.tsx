@@ -275,6 +275,7 @@ export default function App() {
   const [barcode, setBarcode] = useState("");
   const [prodEditing, setProdEditing] = useState<Production | null>(null);
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
+  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
 
   useEffect(() => saveProducts(products), [products]);
@@ -355,6 +356,30 @@ export default function App() {
   }
 
   function updateOrder(id: string, patch: Partial<Order>) {
+    function deleteOrder(id: string) {
+  const ord = orders.find(o => o.id === id);
+  if (!ord) return;
+  // restaurar stock de todos los ítems
+  for (const l of ord.lines) {
+    adjustStock(l.productId, l.qtyKg);
+  }
+  const next = orders.filter(o => o.id !== id);
+  setOrders(next);
+  saveOrders(next);
+}
+
+function handleDeleteOrderClick(id: string) {
+  if (deleteOrderAskId !== id) {
+    setDeleteOrderAskId(id);
+    window.setTimeout(() => {
+      setDeleteOrderAskId(curr => (curr === id ? null : curr));
+    }, 4000);
+    return;
+  }
+  deleteOrder(id);
+  setDeleteOrderAskId(null);
+}
+
     setOrders((prev) => {
       const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
       saveOrders(next);
@@ -862,6 +887,44 @@ export default function App() {
                     {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
                   </div>
                 </Section>
+<Section title="Ventas (eliminar por error)" right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0,10) === today).length}`} />}>
+  <div className="space-y-2 max-h-72 overflow-auto pr-1">
+    {orders.slice(0, 30).map((o) => (
+      <div key={o.id} className="p-3 rounded-2xl border bg-white">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">{o.number}</div>
+          <div className="text-sm">{currency(o.total)}</div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} • {o.status === "entregada" ? "Entregada" : "Abierta"}
+        </div>
+
+        <div className="mt-2 text-xs">
+          {o.lines.map(l => {
+            const p = products.find(x => x.id === l.productId);
+            return (
+              <div key={l.id} className="flex justify-between">
+                <span>{p?.name || "Producto"} × {l.qtyKg}</span>
+                <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-2 flex items-center justify-end">
+          <button
+            className="px-2 py-1 text-xs rounded-lg bg-red-100"
+            onClick={() => handleDeleteOrderClick(o.id)}
+            title="Eliminar comanda y restaurar stock"
+          >
+            {deleteOrderAskId === o.id ? "Confirmar eliminar" : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    ))}
+    {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+  </div>
+</Section>
 
                 <Section
                   title="Productos (activar/editar)"
