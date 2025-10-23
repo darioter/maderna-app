@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-
+// === Firma automática del seed (no requiere tocar versión manual) ===
+function seedHash(s: string) {
+  // djb2 sencillo, suficiente para detectar cambios de contenido
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  return String(h >>> 0);
+}
 // Versionado de datos: ¡subí este número cuando cambies el seed!
 const DATA_VERSION = 2 as const;
 
@@ -13,6 +19,7 @@ const LS_KEYS = {
   orderSeq: "maderna_order_seq_v1",
   pin: "maderna_admin_pin_v1",
   dataVersion: "maderna_data_version", // 👈 debe estar esta línea
+  seedSig: "maderna_seed_signature_v1",  // 👈 NUEVO
 };
 
 function currency(n?: number) {
@@ -89,6 +96,8 @@ function unitLabel(p: Product): "kg" | "unid" {
 // Datos iniciales (seed)
 // =============================
 const seedProducts: Product[] = [
+  // Firma actual del seed (cambia si cambia el contenido del array)
+const SEED_SIGNATURE = seedHash(JSON.stringify(seedProducts));
   {
     id: uid(),
     name: "Milanesa de Pollo (sin provenzal)",
@@ -278,35 +287,68 @@ const seedProducts: Product[] = [
 // Persistencia
 // =============================
 function loadProducts(): Product[] {
-  // Si la versión cambió, resembramos
-  const currentVersion = Number(localStorage.getItem(LS_KEYS.dataVersion) || "0");
-  if (currentVersion < DATA_VERSION) {
-    localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
-    localStorage.setItem(LS_KEYS.dataVersion, String(DATA_VERSION));
-    return seedProducts;
-  }
-
   const raw = localStorage.getItem(LS_KEYS.products);
-  if (raw) {
-    try {
-      const parsed: Product[] = JSON.parse(raw);
-      return parsed.map((p) => ({
-        ...p,
-        stockKg: Number.isFinite(Number(p.stockKg)) ? Number(p.stockKg) : 0,
-        active: p.active ?? true,
-      }));
-    } catch {
-      // Si hay algo corrupto, resembramos
-      localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
-      localStorage.setItem(LS_KEYS.dataVersion, String(DATA_VERSION));
-      return seedProducts;
-    }
+  const storedSig = localStorage.getItem(LS_KEYS.seedSig);
+
+  // Helper: normaliza lista de productos leída
+  const normalize = (list: Product[]) =>
+    list.map((p) => ({
+      stockKg: 0,
+      active: true,
+      ...p,
+      stockKg: Number.isFinite(Number(p.stockKg)) ? Number(p.stockKg) : 0,
+      active: p.active ?? true,
+    }));
+
+  // 1) Si no hay nada guardado → sembrar
+  if (!raw) {
+    const seeded = normalize(seedProducts);
+    localStorage.setItem(LS_KEYS.products, JSON.stringify(seeded));
+    localStorage.setItem(LS_KEYS.seedSig, SEED_SIGNATURE);
+    return seeded;
   }
 
-  localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
-  localStorage.setItem(LS_KEYS.dataVersion, String(DATA_VERSION));
-  return seedProducts;
-}
+  // 2) Hay datos guardados
+  try {
+    const current: Product[] = JSON.parse(raw);
+
+    // 2.a) Si la firma coincide, devolver normalizado
+    if (storedSig === SEED_SIGNATURE) {
+      return normalize(current);
+    }
+
+    // 2.b) La firma cambió → “merge” preservando stock/activo por code
+    const byCode = new Map(current.map((p) => [p.code, p]));
+    const merged: Product[] = seedProducts.map((seed) => {
+      const prev = byCode.get(seed.code);
+      return normalize([
+        {
+          ...seed,
+          // si existía, preservamos
+          stockKg: prev?.stockKg ?? 0,
+          active: prev?.active ?? true,
+          // mantenemos el mismo id si ya existía (para evitar romper refs)
+          id: prev?.id ?? seed.id,
+        },
+      ])[0];
+    });
+
+    // También dejamos cualquier producto “extra” que no está en el seed
+    const seedCodes = new Set(seedProducts.map((p) => p.code));
+    for (const p of current) {
+      if (!seedCodes.has(p.code)) merged.push(...normalize([p]));
+    }
+
+    localStorage.setItem(LS_KEYS.products, JSON.stringify(merged));
+    localStorage.setItem(LS_KEYS.seedSig, SEED_SIGNATURE);
+    return merged;
+  } catch {
+    // Si algo está corrupto → resembrar
+    const seeded = normalize(seedProducts);
+    localStorage.setItem(LS_KEYS.products, JSON.stringify(seeded));
+    localStorage.setItem(LS_KEYS.seedSig, SEED_SIGNATURE);
+    return seeded;
+  }
 function saveProducts(list: Product[]) {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
 }
