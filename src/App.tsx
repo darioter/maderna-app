@@ -1108,7 +1108,7 @@ function handleDeleteOrderClick(id: string) {
         </div>
       )}
 
-            {/* Bottom nav */}
+                 {/* Bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="max-w-xl mx-auto grid grid-cols-5">
           {[
@@ -1131,16 +1131,17 @@ function handleDeleteOrderClick(id: string) {
       </nav>
     </div>
   );
-} // <-- FIN del componente App
-
+} // ← FIN del componente App
 
 // =============================
 // Subcomponentes
 // =============================
-const ProductionForm: React.FC<{
+type ProductionFormProps = {
   products: Product[];
   onAdd: (productId: string, qtyKg: number, date: string) => void;
-}> = ({ products, onAdd }) => {
+};
+
+const ProductionForm: React.FC<ProductionFormProps> = ({ products, onAdd }) => {
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [qty, setQty] = useState(1);
   const [date, setDate] = useState(todayISO());
@@ -1150,7 +1151,11 @@ const ProductionForm: React.FC<{
 
   return (
     <div className="grid gap-2">
-      <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
+      <select
+        className="px-3 py-2 rounded-xl border"
+        value={productId}
+        onChange={(e) => setProductId(e.target.value)}
+      >
         {products
           .filter((p) => p.active)
           .map((p) => (
@@ -1159,6 +1164,7 @@ const ProductionForm: React.FC<{
             </option>
           ))}
       </select>
+
       <div className="flex items-center gap-2">
         <input
           type="number"
@@ -1170,7 +1176,14 @@ const ProductionForm: React.FC<{
         />
         <span className="text-sm text-gray-600">{prd ? unitLabel(prd) : "kg"}</span>
       </div>
-      <input type="date" className="px-3 py-2 rounded-xl border" value={date} onChange={(e) => setDate(e.target.value)} />
+
+      <input
+        type="date"
+        className="px-3 py-2 rounded-xl border"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+      />
+
       <button
         className="w-full mt-1 py-3 rounded-2xl bg-black text-white font-semibold"
         onClick={() => {
@@ -1190,7 +1203,7 @@ const ProductionForm: React.FC<{
 // Tests (sanity checks)
 // =============================
 if (typeof window !== "undefined") {
-  // Validar que bottom nav tiene 5 tabs y que el JSX cierra correctamente
   const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
   console.assert(TABS.length === 5, "Debe haber 5 tabs");
 }
+
