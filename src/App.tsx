@@ -9,7 +9,7 @@ const LS_KEYS = {
   productions: "maderna_productions_v1",
   orderSeq: "maderna_order_seq_v1",
   pin: "maderna_admin_pin_v1",
-  DATA_VERSION = 2; // subí a 3, 4, etc. cuando cambies el seed
+  dataVersion: "maderna_data_version", // subí a 3, 4, etc. cuando cambies el seed
 };
 
 function currency(n?: number) {
