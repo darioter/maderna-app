@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+// Versionado de datos: ¡subí este número cuando cambies el seed!
+const DATA_VERSION = 2 as const;
+
 // =============================
 // Utilidades & Constantes
 // =============================
@@ -9,7 +12,7 @@ const LS_KEYS = {
   productions: "maderna_productions_v1",
   orderSeq: "maderna_order_seq_v1",
   pin: "maderna_admin_pin_v1",
-  dataVersion: "maderna_data_version", // subí a 3, 4, etc. cuando cambies el seed
+  dataVersion: "maderna_data_version", // 👈 debe estar esta línea
 };
 
 function currency(n?: number) {
