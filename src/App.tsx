@@ -123,14 +123,39 @@ const SEED_SIGNATURE = seedHash(JSON.stringify(seedProducts));
 // Persistencia
 // =============================
 function loadProducts(): Product[] {
-  const raw = localStorage.getItem(LS_KEYS.products);
+  function saveProducts(list: Product[]) {
+  localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
+}
+
+function loadOrders(): Order[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.orders) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveOrders(list: Order[]) {
+  localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
+}
+
+function loadProductions(): Production[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.productions) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveProductions(list: Production[]) {
+  localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
+}
+const raw = localStorage.getItem(LS_KEYS.products);
   const storedSig = localStorage.getItem(LS_KEYS.seedSig);
 
-  // Normalización defensiva
+  // Normalización sin claves duplicadas
   const normalize = (list: Product[]) =>
     list.map((p) => ({
-      stockKg: 0,
-      active: true,
       ...p,
       stockKg: Number.isFinite(Number(p.stockKg)) ? Number(p.stockKg) : 0,
       active: p.active ?? true,
@@ -156,16 +181,15 @@ function loadProducts(): Product[] {
     const byCode = new Map(current.map((p) => [p.code, p]));
     const merged: Product[] = seedProducts.map((seed) => {
       const prev = byCode.get(seed.code);
-      const withPreserve: Product = {
+      return {
         ...seed,
         id: prev?.id ?? seed.id,
-        stockKg: prev?.stockKg ?? 0,
+        stockKg: Number.isFinite(Number(prev?.stockKg)) ? Number(prev?.stockKg) : 0,
         active: prev?.active ?? true,
       };
-      return withPreserve;
     });
 
-    // Mantener productos que no están en el seed (custom)
+    // Mantener productos “extra” que no estén en el seed (custom)
     const seedCodes = new Set(seedProducts.map((p) => p.code));
     for (const p of current) {
       if (!seedCodes.has(p.code)) merged.push(p);
@@ -183,6 +207,7 @@ function loadProducts(): Product[] {
     return seeded;
   }
 }
+
 
 // =============================
 // UI helpers
