@@ -160,11 +160,12 @@ function savePin(pin: string) {
 // UI helpers
 // =============================
 type SectionProps = {
-  title: string
-  right?: React.ReactNode
-  children?: React.ReactNode   // <- clave para que acepte children
-}
-  // ==== Section (sin React.FC, con children tipado) ====
+  title: string;
+  right?: React.ReactNode;
+  children?: React.ReactNode; // necesario con React 18
+};
+
+// ==== Section (sin React.FC, con children tipado) ====
 const Section = ({ title, right, children }: SectionProps) => (
   <div className="mb-4">
     <div className="flex items-center justify-between mb-2">
@@ -173,8 +174,7 @@ const Section = ({ title, right, children }: SectionProps) => (
     </div>
     {children}
   </div>
-)
-;
+);
 
 const Pill: React.FC<{ text: string; className?: string }> = ({ text, className }) => (
   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
@@ -189,11 +189,13 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
   // migración suave de pedidos existentes a nuevo esquema
   useEffect(() => {
-    setOrders((prev) => prev.map((o) => ({
-      ...o,
-      payment: o.payment ?? "efectivo",
-      status: o.status ?? "abierta",
-    })));
+    setOrders((prev) =>
+      prev.map((o) => ({
+        ...o,
+        payment: o.payment ?? "efectivo",
+        status: o.status ?? "abierta",
+      }))
+    );
   }, []);
   const [productions, setProductions] = useState<Production[]>(() => loadProductions());
   const [search, setSearch] = useState("");
@@ -221,7 +223,11 @@ export default function App() {
   }, [products, search, barcode]);
 
   function adjustStock(productId: string, deltaKg: number) {
-    setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p)));
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p
+      )
+    );
   }
 
   function addProduction(productId: string, qtyKg: number, date: string) {
@@ -318,7 +324,9 @@ export default function App() {
     const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
     saveSeq(seq);
     const date = new Date();
-    const number = `M-${date.toISOString().slice(0, 10).replaceAll('-', '')}-${String(seq).padStart(4, '0')}`;
+    // Sin replaceAll (compatibilidad TS < ES2021)
+    const compactDate = date.toISOString().slice(0, 10).split("-").join("");
+    const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
 
     const lines: OrderLine[] = draftLines.map((l) => {
       const p = products.find((x) => x.id === l.productId)!;
@@ -370,6 +378,19 @@ export default function App() {
     () => orders.filter((o) => o.status !== "entregada" && dateOf(o.createdAt) < reportDate),
     [orders, reportDate]
   );
+
+  // =============================
+  // Guardar/editar productos (faltaba la función)
+  // =============================
+  function saveProduct(p: Product) {
+    setProducts((prev) => {
+      const exists = prev.some((x) => x.id === p.id);
+      const next = exists ? prev.map((x) => (x.id === p.id ? { ...x, ...p } : x)) : [p, ...prev];
+      saveProducts(next);
+      return next;
+    });
+    setEditing(null);
+  }
 
   // =============================
   // Render
@@ -755,7 +776,19 @@ export default function App() {
                     <button
                       className="px-3 py-2 rounded-xl bg-black text-white"
                       onClick={() =>
-                        setEditing({ id: uid(), name: "", hex: "#cccccc", costPerKg: 0, pricePerKg: 0, priceStore: 0, category: "", code: "", barcode: "", stockKg: 0, active: true })
+                        setEditing({
+                          id: uid(),
+                          name: "",
+                          hex: "#cccccc",
+                          costPerKg: 0,
+                          pricePerKg: 0,
+                          priceStore: 0,
+                          category: "",
+                          code: "",
+                          barcode: "",
+                          stockKg: 0,
+                          active: true,
+                        })
                       }
                     >
                       + Nuevo
@@ -769,10 +802,14 @@ export default function App() {
                           <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{p.name || <i className="text-gray-400">(sin nombre)</i>}</div>
-                            <div className="text-xs text-gray-500">{p.code} • {p.category || "Sin categoría"}</div>
+                            <div className="text-xs text-gray-500">
+                              {p.code} • {p.category || "Sin categoría"}
+                            </div>
                           </div>
                           <div className="grid gap-1">
-                            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>Editar</button>
+                            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>
+                              Editar
+                            </button>
                             <button
                               className="text-xs px-2 py-1 rounded-lg bg-gray-100"
                               onClick={() => setProducts((prev) => prev.map((px) => (px.id === p.id ? { ...px, active: !px.active } : px)))}
@@ -811,25 +848,89 @@ export default function App() {
                     <div className="bg-white rounded-2xl p-4 w-full max-w-md">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-semibold">Editar producto</h3>
-                        <button className="text-sm" onClick={() => setEditing(null)}>✕</button>
+                        <button className="text-sm" onClick={() => setEditing(null)}>
+                          ✕
+                        </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input className="col-span-2 px-3 py-2 rounded-xl border" placeholder="Nombre" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="Código" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="Categoría" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="Barras" value={editing.barcode || ""} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="#HEX" value={editing.hex} onChange={(e) => setEditing({ ...editing, hex: e.target.value })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Costo/${unitLabel(editing as Product)}`} value={editing.costPerKg ?? 0} onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`PV receta/${unitLabel(editing as Product)}`} value={editing.pricePerKg ?? 0} onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder="PVP tienda" value={editing.priceStore ?? 0} onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Stock ${unitLabel(editing as Product)}`} value={editing.stockKg} onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })} />
+                        <input
+                          className="col-span-2 px-3 py-2 rounded-xl border"
+                          placeholder="Nombre"
+                          value={editing.name}
+                          onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="Código"
+                          value={editing.code}
+                          onChange={(e) => setEditing({ ...editing, code: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="Categoría"
+                          value={editing.category}
+                          onChange={(e) => setEditing({ ...editing, category: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="Barras"
+                          value={editing.barcode || ""}
+                          onChange={(e) => setEditing({ ...editing, barcode: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="#HEX"
+                          value={editing.hex}
+                          onChange={(e) => setEditing({ ...editing, hex: e.target.value })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder={`Costo/${unitLabel(editing as Product)}`}
+                          value={editing.costPerKg ?? 0}
+                          onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder={`PV receta/${unitLabel(editing as Product)}`}
+                          value={editing.pricePerKg ?? 0}
+                          onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="PVP tienda"
+                          value={editing.priceStore ?? 0}
+                          onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder={`Stock ${unitLabel(editing as Product)}`}
+                          value={editing.stockKg}
+                          onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })}
+                        />
                         <div className="col-span-2 flex items-center justify-between mt-2">
                           <label className="text-sm flex items-center gap-2">
-                            <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> Activo
+                            <input
+                              type="checkbox"
+                              checked={!!editing.active}
+                              onChange={(e) => setEditing({ ...editing, active: e.target.checked })}
+                            />{" "}
+                            Activo
                           </label>
                           <div className="grid grid-cols-2 gap-2">
-                            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
-                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing)}>Guardar</button>
+                            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>
+                              Cancelar
+                            </button>
+                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing)}>
+                              Guardar
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -848,18 +949,41 @@ export default function App() {
           <div className="bg-white rounded-2xl p-4 w-full max-w-md">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold">Editar producción</h3>
-              <button className="text-sm" onClick={() => setProdEditing(null)}>✕</button>
+              <button className="text-sm" onClick={() => setProdEditing(null)}>
+                ✕
+              </button>
             </div>
             <div className="grid gap-2">
-              <div className="text-sm text-gray-600">{products.find((p) => p.id === prodEditing.productId)?.name}</div>
+              <div className="text-sm text-gray-600">
+                {products.find((p) => p.id === prodEditing.productId)?.name}
+              </div>
               <label className="text-xs">
-                Cantidad ({(() => { const prd = products.find((p) => p.id === prodEditing.productId); return prd ? unitLabel(prd) : "kg"; })()})
+                Cantidad (
+                {(() => {
+                  const prd = products.find((p) => p.id === prodEditing.productId);
+                  return prd ? unitLabel(prd) : "kg";
+                })()}
+                )
               </label>
-              <input type="number" min={0.1} step={0.1} className="px-3 py-2 rounded-xl border" defaultValue={prodEditing.qtyKg} id="editQtyKg" />
+              <input
+                type="number"
+                min={0.1}
+                step={0.1}
+                className="px-3 py-2 rounded-xl border"
+                defaultValue={prodEditing.qtyKg}
+                id="editQtyKg"
+              />
               <label className="text-xs">Fecha</label>
-              <input type="date" className="px-3 py-2 rounded-xl border" defaultValue={prodEditing.date} id="editDate" />
+              <input
+                type="date"
+                className="px-3 py-2 rounded-xl border"
+                defaultValue={prodEditing.date}
+                id="editDate"
+              />
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setProdEditing(null)}>Cancelar</button>
+                <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setProdEditing(null)}>
+                  Cancelar
+                </button>
                 <button
                   className="px-3 py-2 rounded-xl bg-emerald-600 text-white"
                   onClick={() => {
@@ -890,7 +1014,7 @@ export default function App() {
           ].map((it) => (
             <button
               key={it.key}
-              className={`py-2 text-xs flex flex-col items-center ${tab === it.key ? "text-black" : "text-gray-500"}`}
+              className={`py-2 text-xs flex flex-col items-center ${tab === (it.key as any) ? "text-black" : "text-gray-500"}`}
               onClick={() => setTab(it.key as any)}
             >
               <div className="text-lg">{it.icon}</div>
@@ -906,7 +1030,10 @@ export default function App() {
 // =============================
 // Subcomponentes
 // =============================
-const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
+const ProductionForm: React.FC<{
+  products: Product[];
+  onAdd: (productId: string, qtyKg: number, date: string) => void;
+}> = ({ products, onAdd }) => {
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [qty, setQty] = useState(1);
   const [date, setDate] = useState(todayISO());
@@ -917,11 +1044,13 @@ const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string,
   return (
     <div className="grid gap-2">
       <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
-        {products.filter((p) => p.active).map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
+        {products
+          .filter((p) => p.active)
+          .map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
       </select>
       <div className="flex items-center gap-2">
         <input
