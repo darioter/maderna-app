@@ -887,17 +887,27 @@ function handleDeleteOrderClick(id: string) {
                     {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
                   </div>
                 </Section>
-<Section title="Ventas (eliminar por error)" right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0,10) === today).length}`} />}>
-  <div className="space-y-2 max-h-72 overflow-auto pr-1">
-    {orders.slice(0, 30).map((o) => (
-      <div key={o.id} className="p-3 rounded-2xl border bg-white">
-        <div className="flex items-center justify-between">
-          <div className="font-medium">{o.number}</div>
-          <div className="text-sm">{currency(o.total)}</div>
-        </div>
-        <div className="text-xs text-gray-500">
-          {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} • {o.status === "entregada" ? "Entregada" : "Abierta"}
-        </div>
+<button
+  className={`px-2 py-1 text-xs rounded-lg ${
+    o.status === "entregada"
+      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+      : "bg-red-100"
+  }`}
+  onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
+  disabled={o.status === "entregada"}
+  title={
+    o.status === "entregada"
+      ? "No se puede eliminar una venta entregada"
+      : "Eliminar comanda y restaurar stock"
+  }
+>
+  {o.status === "entregada"
+    ? "No disponible"
+    : deleteOrderAskId === o.id
+    ? "Confirmar eliminar"
+    : "Eliminar"}
+</button>
+
 
         <div className="mt-2 text-xs">
           {o.lines.map(l => {
