@@ -1108,7 +1108,7 @@ function handleDeleteOrderClick(id: string) {
         </div>
       )}
 
-                 {/* Bottom nav */}
+                       {/* Bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="max-w-xl mx-auto grid grid-cols-5">
           {[
@@ -1206,4 +1206,3 @@ if (typeof window !== "undefined") {
   const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
   console.assert(TABS.length === 5, "Debe haber 5 tabs");
 }
-
