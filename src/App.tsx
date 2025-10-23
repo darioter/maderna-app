@@ -109,7 +109,12 @@ function loadProducts(): Product[] {
   if (raw) {
     try {
       const parsed: Product[] = JSON.parse(raw);
-      return parsed.map((p) => ({ stockKg: 0, active: true, ...p }));
+      // Primero expandimos p, y recién después seteamos defaults
+      return parsed.map((p) => ({
+        ...p,
+        stockKg: Number.isFinite(Number(p.stockKg)) ? Number(p.stockKg) : 0,
+        active: p.active ?? true,
+      }));
     } catch {}
   }
   localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
