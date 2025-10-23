@@ -275,19 +275,33 @@ const seedProducts: Product[] = [
 // Persistencia
 // =============================
 function loadProducts(): Product[] {
+  // Si la versión cambió, resembramos
+  const currentVersion = Number(localStorage.getItem(LS_KEYS.dataVersion) || "0");
+  if (currentVersion < DATA_VERSION) {
+    localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
+    localStorage.setItem(LS_KEYS.dataVersion, String(DATA_VERSION));
+    return seedProducts;
+  }
+
   const raw = localStorage.getItem(LS_KEYS.products);
   if (raw) {
     try {
       const parsed: Product[] = JSON.parse(raw);
-      // Primero expandimos p, y recién después seteamos defaults
       return parsed.map((p) => ({
         ...p,
         stockKg: Number.isFinite(Number(p.stockKg)) ? Number(p.stockKg) : 0,
         active: p.active ?? true,
       }));
-    } catch {}
+    } catch {
+      // Si hay algo corrupto, resembramos
+      localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
+      localStorage.setItem(LS_KEYS.dataVersion, String(DATA_VERSION));
+      return seedProducts;
+    }
   }
+
   localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
+  localStorage.setItem(LS_KEYS.dataVersion, String(DATA_VERSION));
   return seedProducts;
 }
 function saveProducts(list: Product[]) {
