@@ -529,13 +529,18 @@ export default function App() {
                         ))}
                       </select>
                       <input
-                        type="number"
-                        className="w-24 px-2 py-2 rounded-lg border text-right"
-                        value={l.qtyKg}
-                        onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x)))}
-                        min={isUnid ? 1 : 0.1}
-                        step={isUnid ? 1 : 0.1}
-                      />
+  type="number"
+  className="w-20 sm:w-24 px-2 py-2 rounded-lg border text-right flex-shrink-0"
+  value={l.qtyKg}
+  onChange={(e) =>
+    setDraftLines((ds) =>
+      ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x))
+    )
+  }
+  min={isUnid ? 1 : 0.1}
+  step={isUnid ? 1 : 0.1}
+/>
+
                       <span className="text-xs text-gray-500">{p ? unitLabel(p) : "kg"}</span>
                       <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => removeDraftLine(l.id)}>
                         Quitar
