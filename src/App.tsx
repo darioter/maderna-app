@@ -1108,7 +1108,7 @@ function handleDeleteOrderClick(id: string) {
         </div>
       )}
 
-      {/* Bottom nav */}
+            {/* Bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="max-w-xl mx-auto grid grid-cols-5">
           {[
@@ -1131,7 +1131,8 @@ function handleDeleteOrderClick(id: string) {
       </nav>
     </div>
   );
-}
+} // <-- FIN del componente App
+
 
 // =============================
 // Subcomponentes
