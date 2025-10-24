@@ -81,9 +81,9 @@ function unitLabel(p: Product): "kg" | "unid" {
   return p.category === "Medallones" ? "unid" : "kg";
 }
 
-/* =============================
-   Datos iniciales (seed)
-============================= */
+// =============================
+// Datos iniciales (seed)
+// =============================
 const seedProducts: Product[] = [
   { id: uid(), name: "Milanesa de Pollo (sin provenzal)", hex: "#A3E4B3", costPerKg: 4859.44, pricePerKg: 11570.1, priceStore: 12000, category: "Milanesas", code: "MIL-PO-CL", barcode: "7791234567001", stockKg: 0, active: true },
   { id: uid(), name: "Milanesa de Pollo (con provenzal)", hex: "#45B39D", costPerKg: 5709.87, pricePerKg: 11895.56, priceStore: 12000, category: "Milanesas", code: "MIL-PO-PR", barcode: "7791234567002", stockKg: 0, active: true },
@@ -100,6 +100,7 @@ const seedProducts: Product[] = [
   { id: uid(), name: "Medallones de Pollo x 6", hex: "#E77326", costPerKg: 3875.18, pricePerKg: 7045.79, priceStore: 7000, category: "Medallones", code: "ME-POLLO6", barcode: "7791234567011", stockKg: 0, active: true },
   { id: uid(), name: "Varios", hex: "#9900ff", costPerKg: null, pricePerKg: null, priceStore: null, category: "Varios", code: "VARIOS", barcode: "", stockKg: 0, active: true },
 ];
+
 
 /* =============================
    Persistencia
