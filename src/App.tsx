@@ -277,10 +277,7 @@ export default function App() {
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
   const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
-  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
-
-
+ 
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
   useEffect(() => saveProductions(productions), [productions]);
@@ -345,34 +342,46 @@ export default function App() {
   }
 
   // =============================
-  // Comanda / Ventas
-  // =============================
-  function tryLogin(pin: string) {
-    const saved = loadPin();
-    if (pin === saved) {
-      setPinOk(true);
-      setIs(true);
-      setPinInput("");
-    } else {
-      alert("PIN incorrecto");
-    }
+// Comanda / Ventas
+// =============================
+function tryLogin(pin: string) {
+  const saved = loadPin();
+  if (pin === saved) {
+    setPinOk(true);
+    setIsAdmin(true);            // ← CORRECTO
+    setPinInput("");
+  } else {
+    alert("PIN incorrecto");
   }
+}
 
-  function deleteOrder(id: string) {
-  const ord = orders.find(o => o.id === id);
+// Actualiza una orden (pago, estado, partyName, etc.)
+function updateOrder(id: string, patch: Partial<Order>) {
+  setOrders((prev) => {
+    const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
+    saveOrders(next);            // persiste en localStorage
+    return next;
+  });
+}
+
+// Borrado de orden (con restauración de stock) — para Admin
+function deleteOrder(id: string) {
+  const ord = orders.find((o) => o.id === id);
   if (!ord) return;
-  // restaurar stock
+  // Restaurar stock por cada línea
   for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
-  const next = orders.filter(o => o.id !== id);
+  // Eliminar orden y persistir
+  const next = orders.filter((o) => o.id !== id);
   setOrders(next);
   saveOrders(next);
 }
 
+// Confirmación 2-clicks para borrar la orden
 function handleDeleteOrderClick(id: string) {
   if (deleteOrderAskId !== id) {
     setDeleteOrderAskId(id);
     window.setTimeout(() => {
-      setDeleteOrderAskId(curr => (curr === id ? null : curr));
+      setDeleteOrderAskId((curr) => (curr === id ? null : curr));
     }, 4000);
     return;
   }
@@ -380,75 +389,75 @@ function handleDeleteOrderClick(id: string) {
   setDeleteOrderAskId(null);
 }
 
-    setOrders((prev) => {
-      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
-      saveOrders(next);
-      return next;
-    });
-  }
+// Borrador de comanda (líneas temporales)
+type DraftLine = { id: string; productId: string; qtyKg: number };
+const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
 
-  type DraftLine = { id: string; productId: string; qtyKg: number };
-  const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
+function addDraftLine(p?: Product) {
+  const pid = p?.id || (products[0]?.id ?? "");
+  setDraftLines((d) => [...d, { id: uid(), productId: pid, qtyKg: 1 }]);
+}
+function removeDraftLine(id: string) {
+  setDraftLines((d) => d.filter((l) => l.id !== id));
+}
 
-  function addDraftLine(p?: Product) {
-    const pid = p?.id || (products[0]?.id ?? "");
-    setDraftLines((d) => [...d, { id: uid(), productId: pid, qtyKg: 1 }]);
-  }
-  function removeDraftLine(id: string) {
-    setDraftLines((d) => d.filter((l) => l.id !== id));
-  }
+const draftTotal = useMemo(() => {
+  return draftLines.reduce((acc, l) => {
+    const p = products.find((x) => x.id === l.productId);
+    if (!p) return acc;
+    const price = Number((p.priceStore ?? p.pricePerKg) || 0); // PVP tienda si existe
+    return acc + l.qtyKg * price;
+  }, 0);
+}, [draftLines, products]);
 
-  const draftTotal = useMemo(() => {
-    return draftLines.reduce((acc, l) => {
-      const p = products.find((x) => x.id === l.productId);
-      if (!p) return acc;
-      const price = Number((p.priceStore ?? p.pricePerKg) || 0); // usar PVP tienda si existe
-      return acc + l.qtyKg * price;
-    }, 0);
-  }, [draftLines, products]);
+function issueOrder() {
+  if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
 
-  function issueOrder() {
-    if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
-    for (const l of draftLines) {
-      const p = products.find((x) => x.id === l.productId);
-      if (!p) continue;
-      if (p.stockKg < l.qtyKg) {
-        return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
-      }
+  // Validar stock
+  for (const l of draftLines) {
+    const p = products.find((x) => x.id === l.productId);
+    if (!p) continue;
+    if (p.stockKg < l.qtyKg) {
+      return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
     }
-    const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
-    saveSeq(seq);
-    const date = new Date();
-    // Sin replaceAll (compatibilidad TS < ES2021)
-    const compactDate = date.toISOString().slice(0, 10).split("-").join("");
-    const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
-
-    const lines: OrderLine[] = draftLines.map((l) => {
-      const p = products.find((x) => x.id === l.productId)!;
-      return {
-        id: uid(),
-        productId: l.productId,
-        qtyKg: l.qtyKg,
-        pricePerKgAtSale: Number((p.priceStore ?? p.pricePerKg) || 0),
-      };
-    });
-    const total = lines.reduce((acc, l) => acc + l.qtyKg * l.pricePerKgAtSale, 0);
-
-    const order: Order = {
-      id: uid(),
-      number,
-      createdAt: new Date().toISOString(),
-      lines,
-      total,
-      payment: "efectivo",
-      status: "abierta",
-      partyName: "",
-    };
-    setOrders((o) => [order, ...o]);
-    for (const l of draftLines) adjustStock(l.productId, -l.qtyKg);
-    setDraftLines([]);
-    alert(`Comanda ${number} generada. Total: ${currency(total)}`);
   }
+
+  // Numeración
+  const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
+  saveSeq(seq);
+  const date = new Date();
+  const compactDate = date.toISOString().slice(0, 10).split("-").join("");
+  const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
+
+  // Líneas y total
+  const lines: OrderLine[] = draftLines.map((l) => {
+    const p = products.find((x) => x.id === l.productId)!;
+    return {
+      id: uid(),
+      productId: l.productId,
+      qtyKg: l.qtyKg,
+      pricePerKgAtSale: Number((p.priceStore ?? p.pricePerKg) || 0),
+    };
+  });
+  const total = lines.reduce((acc, l) => acc + l.qtyKg * l.pricePerKgAtSale, 0);
+
+  const order: Order = {
+    id: uid(),
+    number,
+    createdAt: new Date().toISOString(),
+    lines,
+    total,
+    payment: "efectivo",
+    status: "abierta",
+    partyName: "",
+  };
+
+  setOrders((o) => [order, ...o]);
+  // Descontar stock
+  for (const l of draftLines) adjustStock(l.productId, -l.qtyKg);
+  setDraftLines([]);
+  alert(`Comanda ${number} generada. Total: ${currency(total)}`);
+}
 
   // =============================
   // Reportes
