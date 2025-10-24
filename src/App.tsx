@@ -862,6 +862,11 @@ function handleDeleteOrderClick(id: string) {
           <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
         </div>
       </Section>
+    </>
+    )}
+  </div>
+)}   {/* ← cierra {tab === "admin" && ( ... ) */}
+</main>
     ) : (
       <>
         {/* Producciones */}
@@ -1108,33 +1113,33 @@ function handleDeleteOrderClick(id: string) {
         </div>
       )}
 
-                             {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div className="max-w-xl mx-auto grid grid-cols-5">
-          {[
-            { key: "inventario", label: "Inventario", icon: "📦" },
-            { key: "comanda", label: "Comanda", icon: "🧾" },
-            { key: "produccion", label: "Producción", icon: "🥣" },
-            { key: "reportes", label: "Reportes", icon: "📈" },
-            { key: "admin", label: "Admin", icon: "🔒" },
-          ].map((it) => (
-            <button
-              key={it.key}
-              className={`py-2 text-xs flex flex-col items-center ${tab === (it.key as any) ? "text-black" : "text-gray-500"}`}
-              onClick={() => setTab(it.key as any)}
-            >
-              <div className="text-lg">{it.icon}</div>
-              <div>{it.label}</div>
-            </button>
-          ))}
-        </div>
-      </nav>
-    </div>
-  </main>   {/* 👈 Cierra el <main> del return */}
-</div>      {/* 👈 Cierra el <div className="min-h-screen …"> del return */}
-);          {/* 👈 Cierra el return( … ) */}
-}          // 👈 FIN del componente App
+                            {/* Bottom nav */}
+<nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+  <div className="max-w-xl mx-auto grid grid-cols-5">
+    {[
+      { key: "inventario", label: "Inventario", icon: "📦" },
+      { key: "comanda", label: "Comanda", icon: "🧾" },
+      { key: "produccion", label: "Producción", icon: "🥣" },
+      { key: "reportes", label: "Reportes", icon: "📈" },
+      { key: "admin", label: "Admin", icon: "🔒" },
+    ].map((it) => (
+      <button
+        key={it.key}
+        className={`py-2 text-xs flex flex-col items-center ${
+          tab === (it.key as any) ? "text-black" : "text-gray-500"
+        }`}
+        onClick={() => setTab(it.key as any)}
+      >
+        <div className="text-lg">{it.icon}</div>
+        <div>{it.label}</div>
+      </button>
+    ))}
+  </div>
+</nav>
 
+</div>   {/* ← cierra el <div> principal del layout */}
+);
+}        {/* ← cierra la función App */}
 // =============================
 // Subcomponentes
 // =============================
