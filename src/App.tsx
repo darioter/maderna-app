@@ -853,136 +853,21 @@ function issueOrder() {
 
 {/* Admin */}
 {tab === "admin" && (
-  <div>
-    {!pinOk ? (
-      <Section title="Acceso administrador">
-        <div className="space-y-3">
-          <input
-            className="w-full px-3 py-2 rounded-xl border"
-            placeholder="PIN"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            type="password"
-            inputMode="numeric"
-          />
-          <button
-            className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
-            onClick={() => tryLogin(pinInput)}
-          >
-            Entrar
-          </button>
-          <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
-        </div>
-      </Section>
-    ) : (
-      <>
-        {/* Producciones (borrar/ajustar) */}
-        <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {productions.map((pr) => {
-              const p = products.find((x) => x.id === pr.productId);
-              return (
-                <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
-                  <div className="text-sm truncate">
-                    <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
-                    <span className="text-gray-500">{pr.date}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
-                      Editar
-                    </button>
-                    <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
-                      {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
-          </div>
-        </Section>
-
-        {/* Ventas (eliminar por error) */}
-        <Section
-          title="Ventas (eliminar por error)"
-          right={<Pill text={`Hoy: ${orders.filter((o) => o.createdAt.slice(0, 10) === today).length}`} />}
-        >
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {orders.slice(0, 30).map((o) => (
-              <div key={o.id} className="p-3 rounded-2xl border bg-white">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{o.number}</div>
-                  <div className="text-sm">{currency(o.total)}</div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
-                  {o.status === "entregada" ? "Entregada" : "Abierta"}
-                </div>
-
-                <div className="mt-2 text-xs">
-                  {o.lines.map((l) => {
-                    const p = products.find((x) => x.id === l.productId);
-                    return (
-                      <div key={l.id} className="flex justify-between">
-                        <span>
-                          {p?.name || "Producto"} × {l.qtyKg}
-                        </span>
-                        <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-2 flex items-center justify-end">
-                  <button
-                    className={`px-2 py-1 text-xs rounded-lg ${
-                      o.status === "entregada" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-100"
-                    }`}
-                    onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
-                    disabled={o.status === "entregada"}
-                    title={
-                      o.status === "entregada"
-                        ? "No se puede eliminar una venta entregada"
-                        : "Eliminar comanda y restaurar stock"
-                    }
-                  >
-                    {o.status === "entregada"
-                      ? "No disponible"
-                      : deleteOrderAskId === o.id
-                      ? "Confirmar eliminar"
-                      : "Eliminar"}
-                  </button>
-                </div>
-              </div>
-            ))}
-            {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-          </div>
-        </Section>
-
-        {/* Seguridad (PIN) */}
-        <Section title="Seguridad">
-          <div className="flex items-center gap-2">
-            <input
-              className="flex-1 px-3 py-2 rounded-xl border"
-              placeholder="Nuevo PIN"
-              onChange={(e) => setPinInput(e.target.value)}
-            />
-            <button
-              className="px-3 py-2 rounded-xl bg-gray-100"
-              onClick={() => {
-                if (!pinInput.trim()) return alert("Ingresá un PIN");
-                savePin(pinInput.trim());
-                setPinInput("");
-                alert("PIN actualizado");
-              }}
-            >
-              Guardar
-            </button>
-          </div>
-        </Section>
-      </>
-    )}
-  </div>
+  <AdminPanel
+    pinOk={pinOk}
+    pinInput={pinInput}
+    setPinInput={setPinInput}
+    tryLogin={tryLogin}
+    productions={productions}
+    products={products}
+    setProdEditing={setProdEditing}
+    handleDeleteClick={handleDeleteClick}
+    deleteAskId={deleteAskId}
+    orders={orders}
+    today={today}
+    handleDeleteOrderClick={handleDeleteOrderClick}
+    deleteOrderAskId={deleteOrderAskId}
+  />
 )}
 
 </main>
@@ -1078,6 +963,173 @@ const ProductionForm: React.FC<ProductionFormProps> = ({ products, onAdd }) => {
     </div>
   );
 };
+// =============================
+// Admin Panel (extraído para simplificar JSX)
+// =============================
+function AdminPanel(props: {
+  pinOk: boolean;
+  pinInput: string;
+  setPinInput: (v: string) => void;
+  tryLogin: (pin: string) => void;
+  productions: Production[];
+  products: Product[];
+  setProdEditing: (p: Production | null) => void;
+  handleDeleteClick: (id: string) => void;
+  deleteAskId: string | null;
+  orders: Order[];
+  today: string;
+  handleDeleteOrderClick: (id: string) => void;
+  deleteOrderAskId: string | null;
+}) {
+  const {
+    pinOk,
+    pinInput,
+    setPinInput,
+    tryLogin,
+    productions,
+    products,
+    setProdEditing,
+    handleDeleteClick,
+    deleteAskId,
+    orders,
+    today,
+    handleDeleteOrderClick,
+    deleteOrderAskId,
+  } = props;
+
+  return (
+    <div>
+      {!pinOk ? (
+        <Section title="Acceso administrador">
+          <div className="space-y-3">
+            <input
+              className="w-full px-3 py-2 rounded-xl border"
+              placeholder="PIN"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              type="password"
+              inputMode="numeric"
+            />
+            <button
+              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
+              onClick={() => tryLogin(pinInput)}
+            >
+              Entrar
+            </button>
+            <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
+          </div>
+        </Section>
+      ) : (
+        <>
+          {/* Producciones (borrar/ajustar) */}
+          <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
+            <div className="space-y-2 max-h-72 overflow-auto pr-1">
+              {productions.map((pr) => {
+                const p = products.find((x) => x.id === pr.productId);
+                return (
+                  <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
+                    <div className="text-sm truncate">
+                      <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
+                      <span className="text-gray-500">{pr.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
+                        Editar
+                      </button>
+                      <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
+                        {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
+            </div>
+          </Section>
+
+          {/* Ventas (eliminar por error) */}
+          <Section
+            title="Ventas (eliminar por error)"
+            right={<Pill text={`Hoy: ${orders.filter((o) => o.createdAt.slice(0, 10) === today).length}`} />}
+          >
+            <div className="space-y-2 max-h-72 overflow-auto pr-1">
+              {orders.slice(0, 30).map((o) => (
+                <div key={o.id} className="p-3 rounded-2xl border bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{o.number}</div>
+                    <div className="text-sm">{currency(o.total)}</div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
+                    {o.status === "entregada" ? "Entregada" : "Abierta"}
+                  </div>
+
+                  <div className="mt-2 text-xs">
+                    {o.lines.map((l) => {
+                      const p = products.find((x) => x.id === l.productId);
+                      return (
+                        <div key={l.id} className="flex justify-between">
+                          <span>
+                            {p?.name || "Producto"} × {l.qtyKg}
+                          </span>
+                          <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-end">
+                    <button
+                      className={`px-2 py-1 text-xs rounded-lg ${
+                        o.status === "entregada" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-100"
+                      }`}
+                      onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
+                      disabled={o.status === "entregada"}
+                      title={
+                        o.status === "entregada"
+                          ? "No se puede eliminar una venta entregada"
+                          : "Eliminar comanda y restaurar stock"
+                      }
+                    >
+                      {o.status === "entregada"
+                        ? "No disponible"
+                        : deleteOrderAskId === o.id
+                        ? "Confirmar eliminar"
+                        : "Eliminar"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+            </div>
+          </Section>
+
+          {/* Seguridad (PIN) */}
+          <Section title="Seguridad">
+            <div className="flex items-center gap-2">
+              <input
+                className="flex-1 px-3 py-2 rounded-xl border"
+                placeholder="Nuevo PIN"
+                onChange={(e) => setPinInput(e.target.value)}
+              />
+              <button
+                className="px-3 py-2 rounded-xl bg-gray-100"
+                onClick={() => {
+                  if (!pinInput.trim()) return alert("Ingresá un PIN");
+                  savePin(pinInput.trim()); // función global ya definida arriba
+                  setPinInput("");
+                  alert("PIN actualizado");
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </Section>
+        </>
+      )}
+    </div>
+  );
+}
 
 // =============================
 // Tests (sanity checks)
