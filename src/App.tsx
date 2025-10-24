@@ -1,25 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-// === Helper para firma automática del seed ===
-function seedHash(s: string) {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) + h) ^ s.charCodeAt(i);
-  }
-  return String(h >>> 0);
-}
-
-// =============================
-// Utilidades & Constantes
-// =============================
+/* =============================
+   Utilidades & Constantes
+============================= */
 const LS_KEYS = {
   products: "maderna_products_v1",
   orders: "maderna_orders_v1",
   productions: "maderna_productions_v1",
   orderSeq: "maderna_order_seq_v1",
   pin: "maderna_admin_pin_v1",
-  seedSig: "maderna_seed_signature_v1", // 👈 NUEVO
-} as const;
+};
 
 function currency(n?: number) {
   if (n == null || isNaN(n as number)) return "—";
@@ -44,9 +34,9 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// =============================
-// Tipos
-// =============================
+/* =============================
+   Tipos
+============================= */
 export type Product = {
   id: string;
   name: string;
@@ -91,96 +81,40 @@ function unitLabel(p: Product): "kg" | "unid" {
   return p.category === "Medallones" ? "unid" : "kg";
 }
 
-// =============================
-// Datos iniciales (seed)
-// =============================
+/* =============================
+   Datos iniciales (seed)
+============================= */
 const seedProducts: Product[] = [
-  { id: uid(), name: "Milanesa de Pollo (sin provenzal)", hex: "#A3E4B3", costPerKg: 4859.44, pricePerKg: 11570.1,  priceStore: 12000, category: "Milanesas",     code: "MIL-PO-CL",  barcode: "7791234567001", stockKg: 0, active: true },
-  { id: uid(), name: "Milanesa de Pollo (con provenzal)",  hex: "#45B39D", costPerKg: 5709.87, pricePerKg: 11895.56, priceStore: 12000, category: "Milanesas",     code: "MIL-PO-PR",  barcode: "7791234567002", stockKg: 0, active: true },
-  { id: uid(), name: "Milanesa de Nalga",                  hex: "#F1948A", costPerKg: 10465.04,pricePerKg: 16611.17, priceStore: 16500, category: "Milanesas",     code: "MIL-NA-PR",  barcode: "7791234567012", stockKg: 0, active: true },
-  { id: uid(), name: "Milanesa de Peceto",                 hex: "#C0392B", costPerKg: null,    pricePerKg: null,    priceStore: null,  category: "Milanesas",     code: "MIL-PE-PR",  barcode: "",              stockKg: 0, active: true },
+  { id: uid(), name: "Milanesa de Pollo (sin provenzal)", hex: "#A3E4B3", costPerKg: 4859.44, pricePerKg: 11570.1, priceStore: 12000, category: "Milanesas", code: "MIL-PO-CL", barcode: "7791234567001", stockKg: 0, active: true },
+  { id: uid(), name: "Milanesa de Pollo (con provenzal)", hex: "#45B39D", costPerKg: 5709.87, pricePerKg: 11895.56, priceStore: 12000, category: "Milanesas", code: "MIL-PO-PR", barcode: "7791234567002", stockKg: 0, active: true },
+  { id: uid(), name: "Milanesa de Nalga", hex: "#F1948A", costPerKg: 10465.04, pricePerKg: 16611.17, priceStore: 16500, category: "Milanesas", code: "MIL-NA-PR", barcode: "7791234567012", stockKg: 0, active: true },
+  { id: uid(), name: "Milanesa de Peceto", hex: "#C0392B", costPerKg: null, pricePerKg: null, priceStore: null, category: "Milanesas", code: "MIL-PE-PR", barcode: "", stockKg: 0, active: true },
+  { id: uid(), name: "Ribs estilo Kansas BBQ", hex: "#D98880", costPerKg: 6682.55, pricePerKg: 15910.85, priceStore: 16000, category: "Prod. Fresco", code: "PF-RIBS", barcode: "7791234567010", stockKg: 0, active: true },
+  { id: uid(), name: "Bastones de papa", hex: "#F9E79F", costPerKg: 4214.58, pricePerKg: 9365.74, priceStore: 10000, category: "Acompañamientos", code: "AC-BASTON", barcode: "7791234567007", stockKg: 0, active: true },
+  { id: uid(), name: "Caritas de papa", hex: "#F4D03F", costPerKg: 5581.25, pricePerKg: 11162.5, priceStore: 11700, category: "Acompañamientos", code: "AC-CARITAS", barcode: "7791234567005", stockKg: 0, active: true },
+  { id: uid(), name: "Papas Noisette", hex: "#F5B041", costPerKg: 5631.25, pricePerKg: 11262.5, priceStore: 11800, category: "Acompañamientos", code: "AC-NOISETTE", barcode: "7791234567006", stockKg: 0, active: true },
+  { id: uid(), name: "Pechugitas rebozadas", hex: "#85C1E9", costPerKg: null, pricePerKg: null, priceStore: null, category: "Snack & Kids", code: "AC-PECHU", barcode: "", stockKg: 0, active: true },
+  { id: uid(), name: "Nuggets crocantes", hex: "#2E86C1", costPerKg: 8881.25, pricePerKg: 14802.08, priceStore: 14000, category: "Snack & Kids", code: "AC-NUGGETS", barcode: "7791234567008", stockKg: 0, active: true },
+  { id: uid(), name: "Pechugas Frescas", hex: "#F39DC4", costPerKg: 8695.31, pricePerKg: 15809.66, priceStore: 16500, category: "Prod. Fresco", code: "PF-PECHUGA", barcode: "7791234567009", stockKg: 0, active: true },
+  { id: uid(), name: "Medallones de Pollo x 12", hex: "#9DC610", costPerKg: 6950.7, pricePerKg: 11983.97, priceStore: 12000, category: "Medallones", code: "ME-POLLO12", barcode: "7791234567010", stockKg: 0, active: true },
+  { id: uid(), name: "Medallones de Pollo x 6", hex: "#E77326", costPerKg: 3875.18, pricePerKg: 7045.79, priceStore: 7000, category: "Medallones", code: "ME-POLLO6", barcode: "7791234567011", stockKg: 0, active: true },
+  { id: uid(), name: "Varios", hex: "#9900ff", costPerKg: null, pricePerKg: null, priceStore: null, category: "Varios", code: "VARIOS", barcode: "", stockKg: 0, active: true },
+];
 
-  { id: uid(), name: "Ribs estilo Kansas BBQ",             hex: "#D98880", costPerKg: 6682.55, pricePerKg: 15910.85, priceStore: 16000, category: "Prod. Fresco",   code: "PF-RIBS",    barcode: "7791234567010", stockKg: 0, active: true },
-  { id: uid(), name: "Bastones de papa",                   hex: "#F9E79F", costPerKg: 4214.58, pricePerKg: 9365.74,  priceStore: 10000, category: "Acompañamientos", code: "AC-BASTON",  barcode: "7791234567007", stockKg: 0, active: true },
-  { id: uid(), name: "Caritas de papa",                    hex: "#F4D03F", costPerKg: 5581.25, pricePerKg: 11162.5,  priceStore: 11700, category: "Acompañamientos", code: "AC-CARITAS", barcode: "7791234567005", stockKg: 0, active: true },
-  { id: uid(), name: "Papas Noisette",                     hex: "#F5B041", costPerKg: 5631.25, pricePerKg: 11262.5,  priceStore: 11800, category: "Acompañamientos", code: "AC-NOISETTE",barcode: "7791234567006", stockKg: 0, active: true },
-
-  { id: uid(), name: "Pechugitas rebozadas",               hex: "#85C1E9", costPerKg: null,    pricePerKg: null,    priceStore: null,  category: "Snack & Kids",  code: "AC-PECHU",   barcode: "",              stockKg: 0, active: true },
-  { id: uid(), name: "Nuggets crocantes",                  hex: "#2E86C1", costPerKg: 8881.25, pricePerKg: 14802.08, priceStore: 14000, category: "Snack & Kids",  code: "AC-NUGGETS", barcode: "7791234567008", stockKg: 0, active: true },
-
-  { id: uid(), name: "Pechugas Frescas",                   hex: "#F39DC4", costPerKg: 8695.31, pricePerKg: 15809.66, priceStore: 16500, category: "Prod. Fresco",   code: "PF-PECHUGA", barcode: "7791234567009", stockKg: 0, active: true },
-
-  { id: uid(), name: "Medallones de Pollo x 12",           hex: "#9DC610", costPerKg: 6950.7,  pricePerKg: 11983.97, priceStore: 12000, category: "Medallones",   code: "ME-POLLO12", barcode: "7791234567010", stockKg: 0, active: true },
-  { id: uid(), name: "Medallones de Pollo x 6",            hex: "#E77326", costPerKg: 3875.18, pricePerKg: 7045.79,  priceStore: 7000,  category: "Medallones",   code: "ME-POLLO6",  barcode: "7791234567011", stockKg: 0, active: true },
-
-  { id: uid(), name: "Varios",                             hex: "#9900ff", costPerKg: null,    pricePerKg: null,    priceStore: null,  category: "Varios",       code: "VARIOS",     barcode: "",              stockKg: 0, active: true },
-]; // ← **IMPORTANTE**: cerrar el array con `];` y NO dejar nada dentro
-
-// Firma actual del seed (DEBE ir DESPUÉS del `];` y fuera del array)
-const SEED_SIGNATURE = seedHash(JSON.stringify(seedProducts));
-
-// =============================
-// Persistencia
-// =============================
+/* =============================
+   Persistencia
+============================= */
 function loadProducts(): Product[] {
   const raw = localStorage.getItem(LS_KEYS.products);
-  const storedSig = localStorage.getItem(LS_KEYS.seedSig);
-
-  // Normalización sin claves duplicadas
-  const normalize = (list: Product[]) =>
-    list.map((p) => ({
-      ...p,
-      stockKg: Number.isFinite(Number(p.stockKg)) ? Number(p.stockKg) : 0,
-      active: p.active ?? true,
-    }));
-
-  // 1) No hay nada: sembrar y guardar firma
-  if (!raw) {
-    const seeded = normalize(seedProducts);
-    localStorage.setItem(LS_KEYS.products, JSON.stringify(seeded));
-    localStorage.setItem(LS_KEYS.seedSig, SEED_SIGNATURE);
-    return seeded;
+  if (raw) {
+    try {
+      const parsed: Product[] = JSON.parse(raw);
+      return parsed.map((p) => ({ stockKg: 0, active: true, ...p }));
+    } catch {}
   }
-
-  try {
-    const current: Product[] = JSON.parse(raw);
-
-    // 2) Firma no cambió: devolver normalizado
-    if (storedSig === SEED_SIGNATURE) {
-      return normalize(current);
-    }
-
-    // 3) Semilla cambió: merge por code preservando stock/activo
-    const byCode = new Map(current.map((p) => [p.code, p]));
-    const merged: Product[] = seedProducts.map((seed) => {
-      const prev = byCode.get(seed.code);
-      return {
-        ...seed,
-        id: prev?.id ?? seed.id,
-        stockKg: Number.isFinite(Number(prev?.stockKg)) ? Number(prev?.stockKg) : 0,
-        active: prev?.active ?? true,
-      };
-    });
-
-    // Mantener productos “extra” que no estén en el seed (custom)
-    const seedCodes = new Set(seedProducts.map((p) => p.code));
-    for (const p of current) {
-      if (!seedCodes.has(p.code)) merged.push(p);
-    }
-
-    const normalized = normalize(merged);
-    localStorage.setItem(LS_KEYS.products, JSON.stringify(normalized));
-    localStorage.setItem(LS_KEYS.seedSig, SEED_SIGNATURE);
-    return normalized;
-  } catch {
-    // Storage corrupto → resembrar
-    const seeded = normalize(seedProducts);
-    localStorage.setItem(LS_KEYS.products, JSON.stringify(seeded));
-    localStorage.setItem(LS_KEYS.seedSig, SEED_SIGNATURE);
-    return seeded;
-  }
+  localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
+  return seedProducts;
 }
-
 function saveProducts(list: Product[]) {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
 }
@@ -192,7 +126,6 @@ function loadOrders(): Order[] {
     return [];
   }
 }
-
 function saveOrders(list: Order[]) {
   localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
 }
@@ -204,7 +137,6 @@ function loadProductions(): Production[] {
     return [];
   }
 }
-
 function saveProductions(list: Production[]) {
   localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
 }
@@ -213,7 +145,6 @@ function loadSeq(): number {
   const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
   return Number.isFinite(n) ? n : 0;
 }
-
 function saveSeq(n: number) {
   localStorage.setItem(LS_KEYS.orderSeq, String(n));
 }
@@ -221,21 +152,19 @@ function saveSeq(n: number) {
 function loadPin(): string {
   return localStorage.getItem(LS_KEYS.pin) || "1234";
 }
-
 function savePin(pin: string) {
   localStorage.setItem(LS_KEYS.pin, pin);
 }
 
-// =============================
-// UI helpers
-// =============================
+/* =============================
+   UI helpers
+============================= */
 type SectionProps = {
   title: string;
   right?: React.ReactNode;
-  children?: React.ReactNode; // necesario con React 18
+  children?: React.ReactNode;
 };
 
-// ==== Section (sin React.FC, con children tipado) ====
 const Section = ({ title, right, children }: SectionProps) => (
   <div className="mb-4">
     <div className="flex items-center justify-between mb-2">
@@ -250,14 +179,13 @@ const Pill: React.FC<{ text: string; className?: string }> = ({ text, className 
   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
 );
 
-// =============================
-// App principal
-// =============================
+/* =============================
+   App principal
+============================= */
 export default function App() {
-  const [tab, setTab] = useState<"inventario" | "comanda" | "produccion" | "reportes" | "">("inventario");
+  const [tab, setTab] = useState<"inventario" | "comanda" | "produccion" | "reportes" | "admin">("inventario");
   const [products, setProducts] = useState<Product[]>(() => loadProducts());
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
-  // migración suave de pedidos existentes a nuevo esquema
   useEffect(() => {
     setOrders((prev) =>
       prev.map((o) => ({
@@ -269,7 +197,7 @@ export default function App() {
   }, []);
   const [productions, setProductions] = useState<Production[]>(() => loadProductions());
   const [search, setSearch] = useState("");
-  const [is, setIs] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinOk, setPinOk] = useState(false);
   const [barcode, setBarcode] = useState("");
@@ -277,7 +205,7 @@ export default function App() {
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
   const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
- 
+
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
   useEffect(() => saveProductions(productions), [productions]);
@@ -295,9 +223,7 @@ export default function App() {
 
   function adjustStock(productId: string, deltaKg: number) {
     setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p
-      )
+      prev.map((p) => (p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p))
     );
   }
 
@@ -341,127 +267,114 @@ export default function App() {
     setProdEditing(null);
   }
 
-  // =============================
-// Comanda / Ventas
-// =============================
-function tryLogin(pin: string) {
-  const saved = loadPin();
-  if (pin === saved) {
-    setPinOk(true);
-    setIsAdmin(true);            // ← CORRECTO
-    setPinInput("");
-  } else {
-    alert("PIN incorrecto");
-  }
-}
-
-// Actualiza una orden (pago, estado, partyName, etc.)
-function updateOrder(id: string, patch: Partial<Order>) {
-  setOrders((prev) => {
-    const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
-    saveOrders(next);            // persiste en localStorage
-    return next;
-  });
-}
-
-// Borrado de orden (con restauración de stock) — para Admin
-function deleteOrder(id: string) {
-  const ord = orders.find((o) => o.id === id);
-  if (!ord) return;
-  // Restaurar stock por cada línea
-  for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
-  // Eliminar orden y persistir
-  const next = orders.filter((o) => o.id !== id);
-  setOrders(next);
-  saveOrders(next);
-}
-
-// Confirmación 2-clicks para borrar la orden
-function handleDeleteOrderClick(id: string) {
-  if (deleteOrderAskId !== id) {
-    setDeleteOrderAskId(id);
-    window.setTimeout(() => {
-      setDeleteOrderAskId((curr) => (curr === id ? null : curr));
-    }, 4000);
-    return;
-  }
-  deleteOrder(id);
-  setDeleteOrderAskId(null);
-}
-
-// Borrador de comanda (líneas temporales)
-type DraftLine = { id: string; productId: string; qtyKg: number };
-const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
-
-function addDraftLine(p?: Product) {
-  const pid = p?.id || (products[0]?.id ?? "");
-  setDraftLines((d) => [...d, { id: uid(), productId: pid, qtyKg: 1 }]);
-}
-function removeDraftLine(id: string) {
-  setDraftLines((d) => d.filter((l) => l.id !== id));
-}
-
-const draftTotal = useMemo(() => {
-  return draftLines.reduce((acc, l) => {
-    const p = products.find((x) => x.id === l.productId);
-    if (!p) return acc;
-    const price = Number((p.priceStore ?? p.pricePerKg) || 0); // PVP tienda si existe
-    return acc + l.qtyKg * price;
-  }, 0);
-}, [draftLines, products]);
-
-function issueOrder() {
-  if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
-
-  // Validar stock
-  for (const l of draftLines) {
-    const p = products.find((x) => x.id === l.productId);
-    if (!p) continue;
-    if (p.stockKg < l.qtyKg) {
-      return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
+  /* =============================
+     Comanda / Ventas
+  ============================= */
+  function tryLogin(pin: string) {
+    const saved = loadPin();
+    if (pin === saved) {
+      setPinOk(true);
+      setIsAdmin(true); // fix
+      setPinInput("");
+    } else {
+      alert("PIN incorrecto");
     }
   }
 
-  // Numeración
-  const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
-  saveSeq(seq);
-  const date = new Date();
-  const compactDate = date.toISOString().slice(0, 10).split("-").join("");
-  const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
+  function updateOrder(id: string, patch: Partial<Order>) {
+    setOrders((prev) => {
+      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
+      saveOrders(next);
+      return next;
+    });
+  }
 
-  // Líneas y total
-  const lines: OrderLine[] = draftLines.map((l) => {
-    const p = products.find((x) => x.id === l.productId)!;
-    return {
+  function deleteOrder(id: string) {
+    const ord = orders.find((o) => o.id === id);
+    if (!ord) return;
+    for (const l of ord.lines) adjustStock(l.productId, l.qtyKg); // restaurar stock
+    const next = orders.filter((o) => o.id !== id);
+    setOrders(next);
+    saveOrders(next);
+  }
+
+  function handleDeleteOrderClick(id: string) {
+    if (deleteOrderAskId !== id) {
+      setDeleteOrderAskId(id);
+      window.setTimeout(() => {
+        setDeleteOrderAskId((curr) => (curr === id ? null : curr));
+      }, 4000);
+      return;
+    }
+    deleteOrder(id);
+    setDeleteOrderAskId(null);
+  }
+
+  type DraftLine = { id: string; productId: string; qtyKg: number };
+  const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
+
+  function addDraftLine(p?: Product) {
+    const pid = p?.id || (products[0]?.id ?? "");
+    setDraftLines((d) => [...d, { id: uid(), productId: pid, qtyKg: 1 }]);
+  }
+  function removeDraftLine(id: string) {
+    setDraftLines((d) => d.filter((l) => l.id !== id));
+  }
+
+  const draftTotal = useMemo(() => {
+    return draftLines.reduce((acc, l) => {
+      const p = products.find((x) => x.id === l.productId);
+      if (!p) return acc;
+      const price = Number((p.priceStore ?? p.pricePerKg) || 0);
+      return acc + l.qtyKg * price;
+    }, 0);
+  }, [draftLines, products]);
+
+  function issueOrder() {
+    if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
+    for (const l of draftLines) {
+      const p = products.find((x) => x.id === l.productId);
+      if (!p) continue;
+      if (p.stockKg < l.qtyKg) {
+        return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
+      }
+    }
+    const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
+    saveSeq(seq);
+    const date = new Date();
+    const compactDate = date.toISOString().slice(0, 10).split("-").join("");
+    const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
+
+    const lines: OrderLine[] = draftLines.map((l) => {
+      const p = products.find((x) => x.id === l.productId)!;
+      return {
+        id: uid(),
+        productId: l.productId,
+        qtyKg: l.qtyKg,
+        pricePerKgAtSale: Number((p.priceStore ?? p.pricePerKg) || 0),
+      };
+    });
+    const total = lines.reduce((acc, l) => acc + l.qtyKg * l.pricePerKgAtSale, 0);
+
+    const order: Order = {
       id: uid(),
-      productId: l.productId,
-      qtyKg: l.qtyKg,
-      pricePerKgAtSale: Number((p.priceStore ?? p.pricePerKg) || 0),
+      number,
+      createdAt: new Date().toISOString(),
+      lines,
+      total,
+      payment: "efectivo",
+      status: "abierta",
+      partyName: "",
     };
-  });
-  const total = lines.reduce((acc, l) => acc + l.qtyKg * l.pricePerKgAtSale, 0);
+    setOrders((o) => [order, ...o]);
+    for (const l of draftLines) adjustStock(l.productId, -l.qtyKg);
+    setDraftLines([]);
+    alert(`Comanda ${number} generada. Total: ${currency(total)}`);
+  }
 
-  const order: Order = {
-    id: uid(),
-    number,
-    createdAt: new Date().toISOString(),
-    lines,
-    total,
-    payment: "efectivo",
-    status: "abierta",
-    partyName: "",
-  };
-
-  setOrders((o) => [order, ...o]);
-  // Descontar stock
-  for (const l of draftLines) adjustStock(l.productId, -l.qtyKg);
-  setDraftLines([]);
-  alert(`Comanda ${number} generada. Total: ${currency(total)}`);
-}
-
-  // =============================
-  // Reportes
-  // =============================
+  /* =============================
+     Reportes
+  ============================= */
   const today = todayISO();
   const [reportDate, setReportDate] = useState<string>(today);
   const [showOlderPendings, setShowOlderPendings] = useState<boolean>(true);
@@ -483,22 +396,9 @@ function issueOrder() {
     [orders, reportDate]
   );
 
-  // =============================
-  // Guardar/editar productos (faltaba la función)
-  // =============================
-  function saveProduct(p: Product) {
-    setProducts((prev) => {
-      const exists = prev.some((x) => x.id === p.id);
-      const next = exists ? prev.map((x) => (x.id === p.id ? { ...x, ...p } : x)) : [p, ...prev];
-      saveProducts(next);
-      return next;
-    });
-    setEditing(null);
-  }
-
-   // =============================
-  // Render
-  // =============================
+  /* =============================
+     Render
+  ============================= */
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
       {/* Header */}
@@ -510,10 +410,10 @@ function issueOrder() {
             <p className="text-xs text-gray-500 -mt-0.5">App de Stock & Ventas — Beta</p>
           </div>
           <button
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${is ? "bg-emerald-600 text-white" : "bg-gray-200"}`}
-            onClick={() => (is ? setIs(false) : setTab(""))}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${isAdmin ? "bg-emerald-600 text-white" : "bg-gray-200"}`}
+            onClick={() => (isAdmin ? setIsAdmin(false) : setTab("admin"))}
           >
-            {is ? " ON" : ""}
+            {isAdmin ? "Admin ON" : "Admin"}
           </button>
         </div>
       </header>
@@ -586,7 +486,7 @@ function issueOrder() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <span>{pr.date}</span>
-                        {is && (
+                        {isAdmin && (
                           <>
                             <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
                               Editar
@@ -610,74 +510,51 @@ function issueOrder() {
         {tab === "comanda" && (
           <div>
             <Section title="Comanda rápida" right={<Pill text={`Ítems: ${draftLines.length}`} />}>
-  <div className="space-y-2">
-    {draftLines.map((l) => {
-      const p = products.find((x) => x.id === l.productId);
-      const isUnid = p ? unitLabel(p) === "unid" : false;
+              <div className="space-y-2">
+                {draftLines.map((l) => {
+                  const p = products.find((x) => x.id === l.productId);
+                  const isUnid = p ? unitLabel(p) === "unid" : false;
+                  return (
+                    <div key={l.id} className="flex items-center gap-2 p-2 border rounded-xl">
+                      <select
+                        className="flex-1 px-2 py-2 rounded-lg border"
+                        value={l.productId}
+                        onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x)))}
+                      >
+                        {products.filter((x) => x.active).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        className="w-24 px-2 py-2 rounded-lg border text-right"
+                        value={l.qtyKg}
+                        onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x)))}
+                        min={isUnid ? 1 : 0.1}
+                        step={isUnid ? 1 : 0.1}
+                      />
+                      <span className="text-xs text-gray-500">{p ? unitLabel(p) : "kg"}</span>
+                      <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => removeDraftLine(l.id)}>
+                        Quitar
+                      </button>
+                    </div>
+                  );
+                })}
+                <button className="w-full py-2 rounded-xl bg-gray-100" onClick={() => addDraftLine()}>
+                  + Agregar ítem
+                </button>
+              </div>
 
-      return (
-        <div key={l.id} className="flex flex-wrap items-center gap-2 p-2 border rounded-xl">
-          <select
-            className="flex-1 min-w-0 basis-[60%] sm:basis-auto px-2 py-2 rounded-lg border"
-            value={l.productId}
-            onChange={(e) =>
-              setDraftLines((ds) =>
-                ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x))
-              )
-            }
-          >
-            {products.filter((x) => x.active).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="number"
-            inputMode="decimal"
-            className="w-20 sm:w-24 px-2 py-2 rounded-lg border text-right flex-shrink-0"
-            value={l.qtyKg}
-            onChange={(e) =>
-              setDraftLines((ds) =>
-                ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x))
-              )
-            }
-            min={isUnid ? 1 : 0.1}
-            step={isUnid ? 1 : 0.1}
-          />
-
-          <span className="text-xs text-gray-500 flex-shrink-0">
-            {p ? unitLabel(p) : "kg"}
-          </span>
-
-          <button
-            className="px-2 py-1 text-xs bg-red-100 rounded-lg ml-auto sm:ml-0 flex-shrink-0"
-            onClick={() => removeDraftLine(l.id)}
-          >
-            Quitar
-          </button>
-        </div>
-      );
-    })}
-
-    <button className="w-full py-2 rounded-xl bg-gray-100" onClick={() => addDraftLine()}>
-      + Agregar ítem
-    </button>
-  </div>
-
-  <div className="flex items-center justify-between mt-3">
-    <div className="text-sm">Total</div>
-    <div className="text-xl font-bold">{currency(draftTotal)}</div>
-  </div>
-
-  <button
-    className="w-full mt-3 py-3 rounded-2xl bg-emerald-600 text-white font-semibold shadow"
-    onClick={issueOrder}
-  >
-    Generar comanda
-  </button>
-</Section>
+              <div className="flex items-center justify-between mt-3">
+                <div className="text-sm">Total</div>
+                <div className="text-xl font-bold">{currency(draftTotal)}</div>
+              </div>
+              <button className="w-full mt-3 py-3 rounded-2xl bg-emerald-600 text-white font-semibold shadow" onClick={issueOrder}>
+                Generar comanda
+              </button>
+            </Section>
 
             <Section title="Últimas ventas">
               <div className="space-y-2 max-h-64 overflow-auto pr-1">
@@ -766,7 +643,7 @@ function issueOrder() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <span>{pr.date}</span>
-                        {is && (
+                        {isAdmin && (
                           <>
                             <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
                               Editar
@@ -851,62 +728,91 @@ function issueOrder() {
           </div>
         )}
 
-{/* Admin */}
-{tab === "admin" && (
-  <AdminPanel
-    pinOk={pinOk}
-    pinInput={pinInput}
-    setPinInput={setPinInput}
-    tryLogin={tryLogin}
-    productions={productions}
-    products={products}
-    setProdEditing={setProdEditing}
-    handleDeleteClick={handleDeleteClick}
-    deleteAskId={deleteAskId}
-    orders={orders}
-    today={today}
-    handleDeleteOrderClick={handleDeleteOrderClick}
-    deleteOrderAskId={deleteOrderAskId}
-  />
-)}
+        {/* Admin — ahora es un componente aparte */}
+        {tab === "admin" && (
+          <AdminPanel
+            pinOk={pinOk}
+            pinInput={pinInput}
+            setPinInput={setPinInput}
+            tryLogin={tryLogin}
+            productions={productions}
+            products={products}
+            setProdEditing={setProdEditing}
+            handleDeleteClick={handleDeleteClick}
+            deleteAskId={deleteAskId}
+            orders={orders}
+            today={today}
+            handleDeleteOrderClick={handleDeleteOrderClick}
+            deleteOrderAskId={deleteOrderAskId}
+          />
+        )}
+      </main>
 
-</main>
+      {/* Modal editar producción */}
+      {prodEditing && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
+          <div className="bg-white rounded-2xl p-4 w-full max-w-md">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">Editar producción</h3>
+              <button className="text-sm" onClick={() => setProdEditing(null)}>✕</button>
+            </div>
+            <div className="grid gap-2">
+              <div className="text-sm text-gray-600">{products.find((p) => p.id === prodEditing.productId)?.name}</div>
+              <label className="text-xs">
+                Cantidad ({(() => { const prd = products.find((p) => p.id === prodEditing.productId); return prd ? unitLabel(prd) : "kg"; })()})
+              </label>
+              <input type="number" min={0.1} step={0.1} className="px-3 py-2 rounded-xl border" defaultValue={prodEditing.qtyKg} id="editQtyKg" />
+              <label className="text-xs">Fecha</label>
+              <input type="date" className="px-3 py-2 rounded-xl border" defaultValue={prodEditing.date} id="editDate" />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setProdEditing(null)}>Cancelar</button>
+                <button
+                  className="px-3 py-2 rounded-xl bg-emerald-600 text-white"
+                  onClick={() => {
+                    const qty = Number((document.getElementById("editQtyKg") as HTMLInputElement).value);
+                    const date = (document.getElementById("editDate") as HTMLInputElement).value;
+                    if (!qty || qty <= 0) return alert("Cantidad inválida");
+                    if (!date) return alert("Fecha inválida");
+                    updateProduction(prodEditing.id, qty, date);
+                  }}
+                >
+                  Guardar cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-{/* Bottom nav */}
-<nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-  <div className="max-w-xl mx-auto grid grid-cols-5">
-    {[
-      { key: "inventario", label: "Inventario", icon: "📦" },
-      { key: "comanda", label: "Comanda", icon: "🧾" },
-      { key: "produccion", label: "Producción", icon: "🥣" },
-      { key: "reportes", label: "Reportes", icon: "📈" },
-      { key: "admin", label: "Admin", icon: "🔒" },
-    ].map((it) => (
-      <button
-        key={it.key}
-        className={`py-2 text-xs flex flex-col items-center ${
-          tab === (it.key as any) ? "text-black" : "text-gray-500"
-        }`}
-        onClick={() => setTab(it.key as any)}
-      >
-        <div className="text-lg">{it.icon}</div>
-        <div>{it.label}</div>
-      </button>
-    ))}
-  </div>
-</nav>
-</div>
-);
+      {/* Bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div className="max-w-xl mx-auto grid grid-cols-5">
+          {[
+            { key: "inventario", label: "Inventario", icon: "📦" },
+            { key: "comanda", label: "Comanda", icon: "🧾" },
+            { key: "produccion", label: "Producción", icon: "🥣" },
+            { key: "reportes", label: "Reportes", icon: "📈" },
+            { key: "admin", label: "Admin", icon: "🔒" },
+          ].map((it) => (
+            <button
+              key={it.key}
+              className={`py-2 text-xs flex flex-col items-center ${tab === (it.key as any) ? "text-black" : "text-gray-500"}`}
+              onClick={() => setTab(it.key as any)}
+            >
+              <div className="text-lg">{it.icon}</div>
+              <div>{it.label}</div>
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
 
-// =============================
-// Subcomponentes
-// =============================
-type ProductionFormProps = {
-  products: Product[];
-  onAdd: (productId: string, qtyKg: number, date: string) => void;
-};
-
-const ProductionForm: React.FC<ProductionFormProps> = ({ products, onAdd }) => {
+/* =============================
+   Subcomponentes
+============================= */
+const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [qty, setQty] = useState(1);
   const [date, setDate] = useState(todayISO());
@@ -916,20 +822,13 @@ const ProductionForm: React.FC<ProductionFormProps> = ({ products, onAdd }) => {
 
   return (
     <div className="grid gap-2">
-      <select
-        className="px-3 py-2 rounded-xl border"
-        value={productId}
-        onChange={(e) => setProductId(e.target.value)}
-      >
-        {products
-          .filter((p) => p.active)
-          .map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
+      <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
+        {products.filter((p) => p.active).map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
       </select>
-
       <div className="flex items-center gap-2">
         <input
           type="number"
@@ -941,14 +840,7 @@ const ProductionForm: React.FC<ProductionFormProps> = ({ products, onAdd }) => {
         />
         <span className="text-sm text-gray-600">{prd ? unitLabel(prd) : "kg"}</span>
       </div>
-
-      <input
-        type="date"
-        className="px-3 py-2 rounded-xl border"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-      />
-
+      <input type="date" className="px-3 py-2 rounded-xl border" value={date} onChange={(e) => setDate(e.target.value)} />
       <button
         className="w-full mt-1 py-3 rounded-2xl bg-black text-white font-semibold"
         onClick={() => {
@@ -963,9 +855,10 @@ const ProductionForm: React.FC<ProductionFormProps> = ({ products, onAdd }) => {
     </div>
   );
 };
-// =============================
-// Admin Panel (extraído para simplificar JSX)
-// =============================
+
+/* =============================
+   Admin Panel (extraído)
+============================= */
 function AdminPanel(props: {
   pinOk: boolean;
   pinInput: string;
@@ -1021,7 +914,6 @@ function AdminPanel(props: {
         </Section>
       ) : (
         <>
-          {/* Producciones (borrar/ajustar) */}
           <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
             <div className="space-y-2 max-h-72 overflow-auto pr-1">
               {productions.map((pr) => {
@@ -1047,7 +939,6 @@ function AdminPanel(props: {
             </div>
           </Section>
 
-          {/* Ventas (eliminar por error) */}
           <Section
             title="Ventas (eliminar por error)"
             right={<Pill text={`Hoy: ${orders.filter((o) => o.createdAt.slice(0, 10) === today).length}`} />}
@@ -1104,7 +995,6 @@ function AdminPanel(props: {
             </div>
           </Section>
 
-          {/* Seguridad (PIN) */}
           <Section title="Seguridad">
             <div className="flex items-center gap-2">
               <input
@@ -1116,7 +1006,7 @@ function AdminPanel(props: {
                 className="px-3 py-2 rounded-xl bg-gray-100"
                 onClick={() => {
                   if (!pinInput.trim()) return alert("Ingresá un PIN");
-                  savePin(pinInput.trim()); // función global ya definida arriba
+                  savePin(pinInput.trim());
                   setPinInput("");
                   alert("PIN actualizado");
                 }}
@@ -1131,9 +1021,9 @@ function AdminPanel(props: {
   );
 }
 
-// =============================
-// Tests (sanity checks)
-// =============================
+/* =============================
+   Tests (sanity checks)
+============================= */
 if (typeof window !== "undefined") {
   const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
   console.assert(TABS.length === 5, "Debe haber 5 tabs");
