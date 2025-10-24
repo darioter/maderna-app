@@ -877,55 +877,35 @@ function issueOrder() {
     ) : (
       <>
         {/* Producciones (borrar/ajustar) */}
-        <Section
-          title="Producciones (borrar/ajustar)"
-          right={<Pill text={`Total: ${productions.length}`} />}
-        >
+        <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
           <div className="space-y-2 max-h-72 overflow-auto pr-1">
             {productions.map((pr) => {
               const p = products.find((x) => x.id === pr.productId);
               return (
-                <div
-                  key={pr.id}
-                  className="flex items-center justify-between p-2 rounded-xl border bg-gray-50"
-                >
+                <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
                   <div className="text-sm truncate">
                     <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
                     <span className="text-gray-500">{pr.date}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      className="px-2 py-1 text-xs bg-gray-100 rounded-lg"
-                      onClick={() => setProdEditing(pr)}
-                    >
+                    <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
                       Editar
                     </button>
-                    <button
-                      className="px-2 py-1 text-xs bg-red-100 rounded-lg"
-                      onClick={() => handleDeleteClick(pr.id)}
-                    >
+                    <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
                       {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
                     </button>
                   </div>
                 </div>
               );
             })}
-            {!productions.length && (
-              <div className="text-sm text-gray-500">Sin producciones cargadas.</div>
-            )}
+            {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
           </div>
         </Section>
 
         {/* Ventas (eliminar por error) */}
         <Section
           title="Ventas (eliminar por error)"
-          right={
-            <Pill
-              text={`Hoy: ${
-                orders.filter((o) => o.createdAt.slice(0, 10) === today).length
-              }`}
-            />
-          }
+          right={<Pill text={`Hoy: ${orders.filter((o) => o.createdAt.slice(0, 10) === today).length}`} />}
         >
           <div className="space-y-2 max-h-72 overflow-auto pr-1">
             {orders.slice(0, 30).map((o) => (
@@ -935,8 +915,7 @@ function issueOrder() {
                   <div className="text-sm">{currency(o.total)}</div>
                 </div>
                 <div className="text-xs text-gray-500">
-                  {new Date(o.createdAt).toLocaleString()} •{" "}
-                  {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
+                  {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
                   {o.status === "entregada" ? "Entregada" : "Abierta"}
                 </div>
 
@@ -957,13 +936,9 @@ function issueOrder() {
                 <div className="mt-2 flex items-center justify-end">
                   <button
                     className={`px-2 py-1 text-xs rounded-lg ${
-                      o.status === "entregada"
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-red-100"
+                      o.status === "entregada" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-100"
                     }`}
-                    onClick={() =>
-                      o.status !== "entregada" && handleDeleteOrderClick(o.id)
-                    }
+                    onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
                     disabled={o.status === "entregada"}
                     title={
                       o.status === "entregada"
@@ -980,15 +955,36 @@ function issueOrder() {
                 </div>
               </div>
             ))}
-            {!orders.length && (
-              <div className="text-sm text-gray-500">Sin ventas todavía.</div>
-            )}
+            {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+          </div>
+        </Section>
+
+        {/* Seguridad (PIN) */}
+        <Section title="Seguridad">
+          <div className="flex items-center gap-2">
+            <input
+              className="flex-1 px-3 py-2 rounded-xl border"
+              placeholder="Nuevo PIN"
+              onChange={(e) => setPinInput(e.target.value)}
+            />
+            <button
+              className="px-3 py-2 rounded-xl bg-gray-100"
+              onClick={() => {
+                if (!pinInput.trim()) return alert("Ingresá un PIN");
+                savePin(pinInput.trim());
+                setPinInput("");
+                alert("PIN actualizado");
+              }}
+            >
+              Guardar
+            </button>
           </div>
         </Section>
       </>
     )}
   </div>
 )}
+
 </main>
 
 {/* Bottom nav */}
