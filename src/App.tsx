@@ -1,10 +1,10 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/src/App.tsx b/src/App.tsx
-index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..dfe59eeda262a73fed12de30f78589b0c389a85a 100644
+index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc9755909c35f75 100644
 --- a/src/App.tsx
 +++ b/src/App.tsx
 @@ -1,145 +1,193 @@
- import React, { useEffect, useMemo, useState } from "react";
+-import React, { useEffect, useMemo, useState } from "react";
 -// --- Estados auxiliares (confirmación de borrar venta) ---
 -const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
 -
@@ -44,6 +44,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..dfe59eeda262a73fed12de30f78589b0
 -  deleteOrder(id);
 -  setDeleteOrderAskId(null);
 -}
++import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
  
  /* =============================
     Utilidades & Constantes
@@ -238,7 +239,53 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..dfe59eeda262a73fed12de30f78589b0
  
  // =============================
  // Persistencia
-@@ -235,54 +283,51 @@ const Pill: React.FC<{ text: string; className?: string }> = ({ text, className
+@@ -192,97 +240,94 @@ function saveProductions(list: Production[]) {
+ function loadSeq(): number {
+   const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
+   return Number.isFinite(n) ? n : 0;
+ }
+ 
+ function saveSeq(n: number) {
+   localStorage.setItem(LS_KEYS.orderSeq, String(n));
+ }
+ 
+ function loadPin(): string {
+   return localStorage.getItem(LS_KEYS.pin) || "1234";
+ }
+ 
+ function savePin(pin: string) {
+   localStorage.setItem(LS_KEYS.pin, pin);
+ }
+ // =============================
+ // FIN Persistencia
+ // =============================
+ 
+ /* =============================
+    UI helpers
+ ============================= */
+ type SectionProps = {
+   title: string;
+-  right?: React.ReactNode;
+-  children?: React.ReactNode;
++  right?: ReactNode;
++  children?: ReactNode;
+ };
+ 
+ const Section = ({ title, right, children }: SectionProps) => (
+   <div className="mb-4">
+     <div className="flex items-center justify-between mb-2">
+       <h2 className="text-lg font-semibold">{title}</h2>
+       {right}
+     </div>
+     {children}
+   </div>
+ );
+ 
+-const Pill: React.FC<{ text: string; className?: string }> = ({ text, className }) => (
++const Pill: FC<{ text: string; className?: string }> = ({ text, className }) => (
+   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
+ );
+ 
  /* =============================
     App principal
  ============================= */
@@ -845,8 +892,9 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..dfe59eeda262a73fed12de30f78589b0
  /* =============================
     Subcomponentes
  ============================= */
- const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
+-const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
 -  const [productId, setProductId] = useState(products[0]?.id || "");
++const ProductionForm: FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
 +  const firstActiveId = useMemo(
 +    () => products.find((p) => p.active)?.id || products[0]?.id || "",
 +    [products]
