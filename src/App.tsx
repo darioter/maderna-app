@@ -1,5 +1,6 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/src/App.tsx b/src/App.tsx
-index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c2246474444 100644
+index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..dfe59eeda262a73fed12de30f78589b0c389a85a 100644
 --- a/src/App.tsx
 +++ b/src/App.tsx
 @@ -1,145 +1,193 @@
@@ -293,7 +294,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
    function addProduction(productId: string, qtyKg: number, date: string) {
      const prod: Production = { id: uid(), productId, qtyKg, date };
      setProductions((prev) => [prod, ...prev]);
-@@ -301,50 +346,99 @@ export default function App() {
+@@ -301,98 +346,148 @@ export default function App() {
    function handleDeleteClick(id: string) {
      if (deleteAskId !== id) {
        setDeleteAskId(id);
@@ -393,7 +394,57 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
    function deleteOrder(id: string) {
      const ord = orders.find((o) => o.id === id);
      if (!ord) return;
-@@ -404,204 +498,74 @@ export default function App() {
+     for (const l of ord.lines) adjustStock(l.productId, l.qtyKg); // restaurar stock
+     const next = orders.filter((o) => o.id !== id);
+     setOrders(next);
+     saveOrders(next);
+   }
+ 
+   function handleDeleteOrderClick(id: string) {
+     if (deleteOrderAskId !== id) {
+       setDeleteOrderAskId(id);
+       window.setTimeout(() => {
+         setDeleteOrderAskId((curr) => (curr === id ? null : curr));
+       }, 4000);
+       return;
+     }
+     deleteOrder(id);
+     setDeleteOrderAskId(null);
+   }
+ 
+   type DraftLine = { id: string; productId: string; qtyKg: number };
+   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
+ 
+   function addDraftLine(p?: Product) {
+-    const pid = p?.id || (products[0]?.id ?? "");
++    const fallbackId = products.find((prod) => prod.active)?.id || products[0]?.id || "";
++    const pid = p?.id || fallbackId;
+     setDraftLines((d) => [...d, { id: uid(), productId: pid, qtyKg: 1 }]);
+   }
+   function removeDraftLine(id: string) {
+     setDraftLines((d) => d.filter((l) => l.id !== id));
+   }
+ 
+   const draftTotal = useMemo(() => {
+     return draftLines.reduce((acc, l) => {
+       const p = products.find((x) => x.id === l.productId);
+       if (!p) return acc;
+       const price = Number((p.priceStore ?? p.pricePerKg) || 0);
+       return acc + l.qtyKg * price;
+     }, 0);
+   }, [draftLines, products]);
+ 
+   function issueOrder() {
+     if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
+     for (const l of draftLines) {
+       const p = products.find((x) => x.id === l.productId);
+       if (!p) continue;
+       if (p.stockKg < l.qtyKg) {
+         return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
+       }
+     }
+     const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
+@@ -404,204 +499,74 @@ export default function App() {
      const lines: OrderLine[] = draftLines.map((l) => {
        const p = products.find((x) => x.id === l.productId)!;
        return {
@@ -425,7 +476,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
 -  // Restaurar stock
 -  for (const l of ord.lines) {
 -    adjustStock(l.productId, l.qtyKg);
--  }
+   }
 -  const next = orders.filter((o) => o.id !== id);
 -  setOrders(next);
 -  saveOrders(next);
@@ -438,7 +489,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
 -      setDeleteOrderAskId((curr) => (curr === id ? null : curr));
 -    }, 4000);
 -    return;
-   }
+-  }
 -  deleteOrder(id);
 -  setDeleteOrderAskId(null);
 -   {/* Productos (activar/editar) */}
@@ -598,7 +649,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
        </header>
  
        {/* Main */}
-@@ -908,90 +872,192 @@ function saveProduct(p: Product) {
+@@ -908,360 +873,470 @@ function saveProduct(p: Product) {
                        <div className="text-sm font-semibold">{Number(p.stockKg || 0).toFixed(2)} {unitLabel(p)}</div>
                      </div>
                    ))}
@@ -791,7 +842,39 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
    );
  }
  
-@@ -1020,248 +1086,246 @@ const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string,
+ /* =============================
+    Subcomponentes
+ ============================= */
+ const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
+-  const [productId, setProductId] = useState(products[0]?.id || "");
++  const firstActiveId = useMemo(
++    () => products.find((p) => p.active)?.id || products[0]?.id || "",
++    [products]
++  );
++  const [productId, setProductId] = useState(firstActiveId);
+   const [qty, setQty] = useState(1);
+   const [date, setDate] = useState(todayISO());
+ 
+   const prd = products.find((p) => p.id === productId);
+   const isUnid = prd ? unitLabel(prd) === "unid" : false;
+ 
++  useEffect(() => {
++    if (!productId || !products.some((p) => p.id === productId && p.active)) {
++      setProductId(firstActiveId);
++    }
++  }, [productId, firstActiveId, products]);
++
+   return (
+     <div className="grid gap-2">
+       <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
+         {products.filter((p) => p.active).map((p) => (
+           <option key={p.id} value={p.id}>
+             {p.name}
+           </option>
+         ))}
+       </select>
+       <div className="flex items-center gap-2">
+         <input
            type="number"
            min={isUnid ? 1 : 0.1}
            step={isUnid ? 1 : 0.1}
@@ -1236,3 +1319,6 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..a6375cf6b07e62e75eb1d157a7287c22
    const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
    console.assert(TABS.length === 5, "Debe haber 5 tabs");
  }
+ 
+EOF
+)
