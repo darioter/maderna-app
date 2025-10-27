@@ -1,43 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-// --- Estados auxiliares (confirmación de borrar venta) ---
-const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
-
-// --- Editor de producto ---
-const [editing, setEditing] = useState<Product | null>(null);
-
-function saveProduct(p: Product) {
-  setProducts((prev) => {
-    const exists = prev.some((x) => x.id === p.id);
-    const next = exists ? prev.map((x) => (x.id === p.id ? { ...x, ...p } : x)) : [p, ...prev];
-    saveProducts(next);
-    return next;
-  });
-  setEditing(null);
-}
-
-function deleteOrder(id: string) {
-  const ord = orders.find((o) => o.id === id);
-  if (!ord) return;
-  // Restaurar stock
-  for (const l of ord.lines) {
-    adjustStock(l.productId, l.qtyKg);
-  }
-  const next = orders.filter((o) => o.id !== id);
-  setOrders(next);
-  saveOrders(next);
-}
-
-function handleDeleteOrderClick(id: string) {
-  if (deleteOrderAskId !== id) {
-    setDeleteOrderAskId(id);
-    window.setTimeout(() => {
-      setDeleteOrderAskId((curr) => (curr === id ? null : curr));
-    }, 4000);
-    return;
-  }
-  deleteOrder(id);
-  setDeleteOrderAskId(null);
-}
+import { FC, ReactNode, useEffect, useMemo, useState } from "react";
 
 /* =============================
    Utilidades & Constantes
@@ -66,7 +27,7 @@ function currency(n?: number) {
 function todayISO() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-   d.toISOString().split("T")[0];
+  return d.toISOString().split("T")[0];
 }
 
 function uid() {
@@ -115,9 +76,96 @@ export type Production = {
   date: string; // YYYY-MM-DD
 };
 
+type ProductDraft = {
+  id: string;
+  name: string;
+  hex: string;
+  costPerKg: string;
+  pricePerKg: string;
+  priceStore: string;
+  category: string;
+  code: string;
+  barcode: string;
+  stockKg: string;
+  active: boolean;
+};
+
+function unitLabelFromCategory(category: string): "kg" | "unid" {
+  return category === "Medallones" ? "unid" : "kg";
+}
+
 // Unidad por producto (kg o unidades)
 function unitLabel(p: Product): "kg" | "unid" {
-  return p.category === "Medallones" ? "unid" : "kg";
+  return unitLabelFromCategory(p.category);
+}
+
+function numberToDraftInput(value?: number | null): string {
+  return value == null ? "" : String(value);
+}
+
+function productToDraft(product: Product): ProductDraft {
+  return {
+    id: product.id,
+    name: product.name,
+    hex: product.hex,
+    costPerKg: numberToDraftInput(product.costPerKg ?? null),
+    pricePerKg: numberToDraftInput(product.pricePerKg ?? null),
+    priceStore: numberToDraftInput(product.priceStore ?? null),
+    category: product.category,
+    code: product.code,
+    barcode: product.barcode ?? "",
+    stockKg: numberToDraftInput(product.stockKg),
+    active: !!product.active,
+  };
+}
+
+function parseOptionalNumberField(raw: string): number | null | typeof NaN {
+  const normalized = raw.trim().replace(",", ".");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function productFromDraft(draft: ProductDraft): { ok: true; value: Product } | { ok: false; error: string } {
+  const name = draft.name.trim();
+  if (!name) return { ok: false, error: "Ingresá un nombre" };
+
+  const category = draft.category.trim();
+  if (!category) return { ok: false, error: "Ingresá una categoría" };
+
+  const code = draft.code.trim();
+  if (!code) return { ok: false, error: "Ingresá un código" };
+
+  const costPerKg = parseOptionalNumberField(draft.costPerKg);
+  if (Number.isNaN(costPerKg)) return { ok: false, error: "Costo inválido" };
+
+  const pricePerKg = parseOptionalNumberField(draft.pricePerKg);
+  if (Number.isNaN(pricePerKg)) return { ok: false, error: "Precio de receta inválido" };
+
+  const priceStore = parseOptionalNumberField(draft.priceStore);
+  if (Number.isNaN(priceStore)) return { ok: false, error: "PVP tienda inválido" };
+
+  const stockField = parseOptionalNumberField(draft.stockKg);
+  if (Number.isNaN(stockField)) return { ok: false, error: "Stock inválido" };
+  const stockKg = stockField ?? 0;
+  if (stockKg < 0) return { ok: false, error: "El stock no puede ser negativo" };
+
+  return {
+    ok: true,
+    value: {
+      id: draft.id,
+      name,
+      hex: draft.hex || "#cccccc",
+      costPerKg: costPerKg ?? null,
+      pricePerKg: pricePerKg ?? null,
+      priceStore: priceStore ?? null,
+      category,
+      code,
+      barcode: draft.barcode.trim() || undefined,
+      stockKg,
+      active: draft.active,
+    },
+  };
 }
 
 // =============================
@@ -214,8 +262,8 @@ function savePin(pin: string) {
 ============================= */
 type SectionProps = {
   title: string;
-  right?: React.ReactNode;
-  children?: React.ReactNode;
+  right?: ReactNode;
+  children?: ReactNode;
 };
 
 const Section = ({ title, right, children }: SectionProps) => (
@@ -228,7 +276,7 @@ const Section = ({ title, right, children }: SectionProps) => (
   </div>
 );
 
-const Pill: React.FC<{ text: string; className?: string }> = ({ text, className }) => (
+const Pill: FC<{ text: string; className?: string }> = ({ text, className }) => (
   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
 );
 
@@ -257,10 +305,7 @@ export default function App() {
   const [prodEditing, setProdEditing] = useState<Production | null>(null);
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
   const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Product | null>(null);
-   // Confirmación para eliminar una venta
-  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
-
+  const [editing, setEditing] = useState<ProductDraft | null>(null);
 
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
@@ -323,6 +368,55 @@ export default function App() {
     setProdEditing(null);
   }
 
+  function saveProduct(draft: ProductDraft) {
+    const parsed = productFromDraft(draft);
+    if (!parsed.ok) {
+      alert(parsed.error);
+      return;
+    }
+
+    const product = parsed.value;
+    setProducts((prev) => {
+      const exists = prev.some((x) => x.id === product.id);
+      const next = exists ? prev.map((x) => (x.id === product.id ? { ...x, ...product } : x)) : [product, ...prev];
+      saveProducts(next);
+      return next;
+    });
+    setEditing(null);
+  }
+
+  function startNewProduct() {
+    setEditing({
+      id: uid(),
+      name: "",
+      hex: "#cccccc",
+      costPerKg: "",
+      pricePerKg: "",
+      priceStore: "",
+      category: "",
+      code: "",
+      barcode: "",
+      stockKg: "0",
+      active: true,
+    });
+  }
+
+  function openProductEditor(product: Product) {
+    setEditing(productToDraft(product));
+  }
+
+  function toggleProductActive(productId: string) {
+    setProducts((prev) => {
+      const next = prev.map((p) => (p.id === productId ? { ...p, active: !p.active } : p));
+      saveProducts(next);
+      return next;
+    });
+  }
+
+  function updateEditing(patch: Partial<ProductDraft>) {
+    setEditing((curr) => (curr ? { ...curr, ...patch } : curr));
+  }
+
   /* =============================
      Comanda / Ventas
   ============================= */
@@ -370,7 +464,8 @@ export default function App() {
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
 
   function addDraftLine(p?: Product) {
-    const pid = p?.id || (products[0]?.id ?? "");
+    const fallbackId = products.find((prod) => prod.active)?.id || products[0]?.id || "";
+    const pid = p?.id || fallbackId;
     setDraftLines((d) => [...d, { id: uid(), productId: pid, qtyKg: 1 }]);
   }
   function removeDraftLine(id: string) {
@@ -426,124 +521,7 @@ export default function App() {
     for (const l of draftLines) adjustStock(l.productId, -l.qtyKg);
     setDraftLines([]);
     alert(`Comanda ${number} generada. Total: ${currency(total)}`);
-     function deleteOrder(id: string) {
-  const ord = orders.find((o) => o.id === id);
-  if (!ord) return;
-  // Restaurar stock
-  for (const l of ord.lines) {
-    adjustStock(l.productId, l.qtyKg);
   }
-  const next = orders.filter((o) => o.id !== id);
-  setOrders(next);
-  saveOrders(next);
-}
-
-function handleDeleteOrderClick(id: string) {
-  if (deleteOrderAskId !== id) {
-    setDeleteOrderAskId(id);
-    window.setTimeout(() => {
-      setDeleteOrderAskId((curr) => (curr === id ? null : curr));
-    }, 4000);
-    return;
-  }
-  deleteOrder(id);
-  setDeleteOrderAskId(null);
-   {/* Productos (activar/editar) */}
-<Section
-  title="Productos (activar/editar)"
-  right={
-    <button
-      className="px-3 py-2 rounded-xl bg-black text-white"
-      onClick={() =>
-        setEditing({
-          id: uid(),
-          name: "",
-          hex: "#cccccc",
-          costPerKg: 0,
-          pricePerKg: 0,
-          priceStore: 0,
-          category: "",
-          code: "",
-          barcode: "",
-          stockKg: 0,
-          active: true,
-        })
-      }
-    >
-      + Nuevo
-    </button>
-  }
->
-  <div className="space-y-2">
-    {products.map((p) => (
-      <div key={p.id} className="p-3 rounded-2xl border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
-          <div className="flex-1 min-w-0">
-            <div className="font-medium truncate">{p.name || <i className="text-gray-400">(sin nombre)</i>}</div>
-            <div className="text-xs text-gray-500">
-              {p.code} • {p.category || "Sin categoría"}
-            </div>
-          </div>
-          <div className="grid gap-1">
-            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>
-              Editar
-            </button>
-            <button
-              className="text-xs px-2 py-1 rounded-lg bg-gray-100"
-              onClick={() =>
-                setProducts((prev) =>
-                  prev.map((px) => (px.id === p.id ? { ...px, active: !px.active } : px))
-                )
-              }
-            >
-              {p.active ? "Desactivar" : "Activar"}
-            </button>
-          </div>
-        </div>
-        <div className="text-xs text-gray-500 mt-2">
-          C: {currency(p.costPerKg ?? undefined)}/{unitLabel(p)} • PV receta: {currency(p.pricePerKg ?? undefined)}/{unitLabel(p)} • PVP tienda: {currency(p.priceStore ?? undefined)} • Stock: {Number(p.stockKg || 0).toFixed(2)} {unitLabel(p)}
-        </div>
-      </div>
-    ))}
-  </div>
-</Section>
-
-{/* Modal editor producto */}
-{editing && (
-  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
-    <div className="bg-white rounded-2xl p-4 w-full max-w-md">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold">Editar producto</h3>
-        <button className="text-sm" onClick={() => setEditing(null)}>✕</button>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <input className="col-span-2 px-3 py-2 rounded-xl border" placeholder="Nombre" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-        <input className="px-3 py-2 rounded-xl border" placeholder="Código" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
-        <input className="px-3 py-2 rounded-xl border" placeholder="Categoría" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
-        <input className="px-3 py-2 rounded-xl border" placeholder="Barras" value={editing.barcode || ""} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
-        <input className="px-3 py-2 rounded-xl border" placeholder="#HEX" value={editing.hex} onChange={(e) => setEditing({ ...editing, hex: e.target.value })} />
-        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Costo/${unitLabel(editing as Product)}`} value={editing.costPerKg ?? 0} onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })} />
-        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`PV receta/${unitLabel(editing as Product)}`} value={editing.pricePerKg ?? 0} onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })} />
-        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder="PVP tienda" value={editing.priceStore ?? 0} onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })} />
-        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Stock ${unitLabel(editing as Product)}`} value={editing.stockKg} onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })} />
-        <div className="col-span-2 flex items-center justify-between mt-2">
-          <label className="text-sm flex items-center gap-2">
-            <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
-            Activo
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
-            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing!)}>Guardar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-}
-
 
   /* =============================
      Reportes
@@ -567,19 +545,6 @@ function handleDeleteOrderClick(id: string) {
   const olderPendings = useMemo(
     () => orders.filter((o) => o.status !== "entregada" && dateOf(o.createdAt) < reportDate),
     [orders, reportDate]
-// Editor modal de producto
-const [editing, setEditing] = useState<Product | null>(null);
-
-function saveProduct(p: Product) {
-  setProducts((prev) => {
-    const exists = prev.some((x) => x.id === p.id);
-    const next = exists ? prev.map((x) => (x.id === p.id ? { ...x, ...p } : x)) : [p, ...prev];
-    saveProducts(next);
-    return next;
-  });
-  setEditing(null);
-}
-
   );
 
   /* =============================
@@ -930,6 +895,9 @@ function saveProduct(p: Product) {
             today={today}
             handleDeleteOrderClick={handleDeleteOrderClick}
             deleteOrderAskId={deleteOrderAskId}
+            onNewProduct={startNewProduct}
+            onEditProduct={openProductEditor}
+            onToggleProductActive={toggleProductActive}
           />
         )}
       </main>
@@ -970,6 +938,105 @@ function saveProduct(p: Product) {
         </div>
       )}
 
+      {editing ? (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
+          <div className="bg-white rounded-2xl p-4 w-full max-w-md">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">Editar producto</h3>
+              <button className="text-sm" onClick={() => setEditing(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                className="col-span-2 px-3 py-2 rounded-xl border"
+                placeholder="Nombre"
+                value={editing.name}
+                onChange={(e) => updateEditing({ name: e.target.value })}
+              />
+              <input
+                className="px-3 py-2 rounded-xl border"
+                placeholder="Código"
+                value={editing.code}
+                onChange={(e) => updateEditing({ code: e.target.value })}
+              />
+              <input
+                className="px-3 py-2 rounded-xl border"
+                placeholder="Categoría"
+                value={editing.category}
+                onChange={(e) => updateEditing({ category: e.target.value })}
+              />
+              <input
+                className="px-3 py-2 rounded-xl border"
+                placeholder="Barras"
+                value={editing.barcode}
+                onChange={(e) => updateEditing({ barcode: e.target.value })}
+              />
+              <input
+                className="px-3 py-2 rounded-xl border"
+                placeholder="#HEX"
+                value={editing.hex}
+                onChange={(e) => updateEditing({ hex: e.target.value })}
+              />
+              <input
+                type="number"
+                step="0.01"
+                className="px-3 py-2 rounded-xl border"
+                placeholder={`Costo/${unitLabelFromCategory(editing.category)}`}
+                value={editing.costPerKg}
+                onChange={(e) => updateEditing({ costPerKg: e.target.value })}
+              />
+              <input
+                type="number"
+                step="0.01"
+                className="px-3 py-2 rounded-xl border"
+                placeholder={`PV receta/${unitLabelFromCategory(editing.category)}`}
+                value={editing.pricePerKg}
+                onChange={(e) => updateEditing({ pricePerKg: e.target.value })}
+              />
+              <input
+                type="number"
+                step="0.01"
+                className="px-3 py-2 rounded-xl border"
+                placeholder="PVP tienda"
+                value={editing.priceStore}
+                onChange={(e) => updateEditing({ priceStore: e.target.value })}
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="px-3 py-2 rounded-xl border"
+                placeholder={`Stock ${unitLabelFromCategory(editing.category)}`}
+                value={editing.stockKg}
+                onChange={(e) => updateEditing({ stockKg: e.target.value })}
+              />
+              <div className="col-span-2 flex items-center justify-between mt-2">
+                <label className="text-sm flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={!!editing.active}
+                    onChange={(e) => updateEditing({ active: e.target.checked })}
+                  />
+                  Activo
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="px-3 py-2 rounded-xl bg-emerald-600 text-white"
+                    onClick={() => editing && saveProduct(editing)}
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="max-w-xl mx-auto grid grid-cols-5">
@@ -998,13 +1065,23 @@ function saveProduct(p: Product) {
 /* =============================
    Subcomponentes
 ============================= */
-const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
-  const [productId, setProductId] = useState(products[0]?.id || "");
+const ProductionForm: FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
+  const firstActiveId = useMemo(
+    () => products.find((p) => p.active)?.id || products[0]?.id || "",
+    [products]
+  );
+  const [productId, setProductId] = useState(firstActiveId);
   const [qty, setQty] = useState(1);
   const [date, setDate] = useState(todayISO());
 
   const prd = products.find((p) => p.id === productId);
   const isUnid = prd ? unitLabel(prd) === "unid" : false;
+
+  useEffect(() => {
+    if (!productId || !products.some((p) => p.id === productId && p.active)) {
+      setProductId(firstActiveId);
+    }
+  }, [productId, firstActiveId, products]);
 
   return (
     <div className="grid gap-2">
@@ -1042,221 +1119,219 @@ const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string,
   );
 };
 
-{/* Admin */}
-{tab === "admin" && (
-  <div>
-    {!pinOk ? (
-      <Section title="Acceso administrador">
-        <div className="space-y-3">
-          <input
-            className="w-full px-3 py-2 rounded-xl border"
-            placeholder="PIN"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            type="password"
-            inputMode="numeric"
-          />
-          <button
-            className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
-            onClick={() => tryLogin(pinInput)}
-          >
-            Entrar
-          </button>
-          <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
-        </div>
-      </Section>
-    ) : (
-      <>
-        {/* Producciones (borrar/ajustar) */}
-        <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {productions.map((pr) => {
-              const p = products.find((x) => x.id === pr.productId);
-              return (
-                <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
-                  <div className="text-sm truncate">
-                    <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
-                    <span className="text-gray-500">{pr.date}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
-                      Editar
-                    </button>
-                    <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
-                      {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {!productions.length && (
-              <div className="text-sm text-gray-500">Sin producciones cargadas.</div>
-            )}
-          </div>
-        </Section>
+/* =============================
+   Admin Panel (extraído)
+============================= */
+function AdminPanel(props: {
+  pinOk: boolean;
+  pinInput: string;
+  setPinInput: (v: string) => void;
+  tryLogin: (pin: string) => void;
+  productions: Production[];
+  products: Product[];
+  setProdEditing: (p: Production | null) => void;
+  handleDeleteClick: (id: string) => void;
+  deleteAskId: string | null;
+  orders: Order[];
+  today: string;
+  handleDeleteOrderClick: (id: string) => void;
+  deleteOrderAskId: string | null;
+  onNewProduct: () => void;
+  onEditProduct: (product: Product) => void;
+  onToggleProductActive: (productId: string) => void;
+}) {
+  const {
+    pinOk,
+    pinInput,
+    setPinInput,
+    tryLogin,
+    productions,
+    products,
+    setProdEditing,
+    handleDeleteClick,
+    deleteAskId,
+    orders,
+    today,
+    handleDeleteOrderClick,
+    deleteOrderAskId,
+    onNewProduct,
+    onEditProduct,
+    onToggleProductActive,
+  } = props;
 
-        {/* Ventas (eliminar por error) */}
-        <Section
-          title="Ventas (eliminar por error)"
-          right={<Pill text={`Últimas: ${orders.length}`} />}
-        >
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {orders.slice(0, 30).map((o) => (
-              <div key={o.id} className="p-3 rounded-2xl border bg-white">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{o.number}</div>
-                  <div className="text-sm">{currency(o.total)}</div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {new Date(o.createdAt).toLocaleString()} •{" "}
-                  {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
-                  {o.status === "entregada" ? "Entregada" : "Abierta"}
-                </div>
-
-                <div className="mt-2 text-xs">
-                  {o.lines.map((l) => {
-                    const p = products.find((x) => x.id === l.productId);
-                    return (
-                      <div key={l.id} className="flex justify-between">
-                        <span>
-                          {p?.name || "Producto"} × {l.qtyKg}
-                        </span>
-                        <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-2 flex items-center justify-end">
-                  <button
-                    className={`px-2 py-1 text-xs rounded-lg ${
-                      o.status === "entregada"
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-red-100"
-                    }`}
-                    onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
-                    disabled={o.status === "entregada"}
-                    title={
-                      o.status === "entregada"
-                        ? "No se puede eliminar una venta entregada"
-                        : "Eliminar comanda y restaurar stock"
-                    }
-                  >
-                    {o.status === "entregada"
-                      ? "No disponible"
-                      : deleteOrderAskId === o.id
-                      ? "Confirmar eliminar"
-                      : "Eliminar"}
-                  </button>
-                </div>
-              </div>
-            ))}
-            {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-          </div>
-        </Section>
-
-        {/* Productos (activar/editar) */}
-        <Section
-          title="Productos (activar/editar)"
-          right={
+  return (
+    <div>
+      {!pinOk ? (
+        <Section title="Acceso administrador">
+          <div className="space-y-3">
+            <input
+              className="w-full px-3 py-2 rounded-xl border"
+              placeholder="PIN"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              type="password"
+              inputMode="numeric"
+            />
             <button
-              className="px-3 py-2 rounded-xl bg-black text-white"
-              onClick={() =>
-                setEditing({
-                  id: uid(),
-                  name: "",
-                  hex: "#cccccc",
-                  costPerKg: 0,
-                  pricePerKg: 0,
-                  priceStore: 0,
-                  category: "",
-                  code: "",
-                  barcode: "",
-                  stockKg: 0,
-                  active: true,
-                })
-              }
+              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
+              onClick={() => tryLogin(pinInput)}
             >
-              + Nuevo
+              Entrar
             </button>
-          }
-        >
-          <div className="space-y-2">
-            {products.map((p) => (
-              <div key={p.id} className="p-3 rounded-2xl border">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {p.name || <i className="text-gray-400">(sin nombre)</i>}
+            <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
+          </div>
+        </Section>
+      ) : (
+        <>
+          <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
+            <div className="space-y-2 max-h-72 overflow-auto pr-1">
+              {productions.map((pr) => {
+                const p = products.find((x) => x.id === pr.productId);
+                return (
+                  <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
+                    <div className="text-sm truncate">
+                      <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
+                      <span className="text-gray-500">{pr.date}</span>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {p.code} • {p.category || "Sin categoría"}
+                    <div className="flex items-center gap-2">
+                      <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
+                        Editar
+                      </button>
+                      <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
+                        {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
+                      </button>
                     </div>
                   </div>
-                  <div className="grid gap-1">
-                    <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>
-                      Editar
-                    </button>
+                );
+              })}
+              {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
+            </div>
+          </Section>
+
+          <Section
+            title="Ventas (eliminar por error)"
+            right={<Pill text={`Hoy: ${orders.filter((o) => o.createdAt.slice(0, 10) === today).length}`} />}
+          >
+            <div className="space-y-2 max-h-72 overflow-auto pr-1">
+              {orders.slice(0, 30).map((o) => (
+                <div key={o.id} className="p-3 rounded-2xl border bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{o.number}</div>
+                    <div className="text-sm">{currency(o.total)}</div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
+                    {o.status === "entregada" ? "Entregada" : "Abierta"}
+                  </div>
+
+                  <div className="mt-2 text-xs">
+                    {o.lines.map((l) => {
+                      const p = products.find((x) => x.id === l.productId);
+                      return (
+                        <div key={l.id} className="flex justify-between">
+                          <span>
+                            {p?.name || "Producto"} × {l.qtyKg}
+                          </span>
+                          <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-end">
                     <button
-                      className="text-xs px-2 py-1 rounded-lg bg-gray-100"
-                      onClick={() =>
-                        setProducts((prev) =>
-                          prev.map((px) => (px.id === p.id ? { ...px, active: !px.active } : px))
-                        )
+                      className={`px-2 py-1 text-xs rounded-lg ${
+                        o.status === "entregada" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-100"
+                      }`}
+                      onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
+                      disabled={o.status === "entregada"}
+                      title={
+                        o.status === "entregada"
+                          ? "No se puede eliminar una venta entregada"
+                          : "Eliminar comanda y restaurar stock"
                       }
                     >
-                      {p.active ? "Desactivar" : "Activar"}
+                      {o.status === "entregada"
+                        ? "No disponible"
+                        : deleteOrderAskId === o.id
+                        ? "Confirmar eliminar"
+                        : "Eliminar"}
                     </button>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-2">
-                  C: {currency(p.costPerKg ?? undefined)}/{unitLabel(p)} • PV receta:{" "}
-                  {currency(p.pricePerKg ?? undefined)}/{unitLabel(p)} • PVP tienda:{" "}
-                  {currency(p.priceStore ?? undefined)} • Stock:{" "}
-                  {Number(p.stockKg || 0).toFixed(2)} {unitLabel(p)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
+              ))}
+              {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+            </div>
+          </Section>
 
-        {/* Modal editor producto */}
-        {editing && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
-            <div className="bg-white rounded-2xl p-4 w-full max-w-md">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">Editar producto</h3>
-                <button className="text-sm" onClick={() => setEditing(null)}>✕</button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input className="col-span-2 px-3 py-2 rounded-xl border" placeholder="Nombre" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                <input className="px-3 py-2 rounded-xl border" placeholder="Código" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
-                <input className="px-3 py-2 rounded-xl border" placeholder="Categoría" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
-                <input className="px-3 py-2 rounded-xl border" placeholder="Barras" value={editing.barcode || ""} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
-                <input className="px-3 py-2 rounded-xl border" placeholder="#HEX" value={editing.hex} onChange={(e) => setEditing({ ...editing, hex: e.target.value })} />
-                <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Costo/${unitLabel(editing as Product)}`} value={editing.costPerKg ?? 0} onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })} />
-                <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`PV receta/${unitLabel(editing as Product)}`} value={editing.pricePerKg ?? 0} onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })} />
-                <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder="PVP tienda" value={editing.priceStore ?? 0} onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })} />
-                <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Stock ${unitLabel(editing as Product)}`} value={editing.stockKg} onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })} />
-                <div className="col-span-2 flex items-center justify-between mt-2">
-                  <label className="text-sm flex items-center gap-2">
-                    <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
-                    Activo
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
-                    <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing!)}>Guardar</button>
+          <Section
+            title="Productos (activar/editar)"
+            right={
+              <button className="px-3 py-2 rounded-xl bg-black text-white" onClick={onNewProduct}>
+                + Nuevo
+              </button>
+            }
+          >
+            <div className="space-y-2">
+              {products.map((p) => (
+                <div key={p.id} className="p-3 rounded-2xl border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">
+                        {p.name || <i className="text-gray-400">(sin nombre)</i>}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {p.code} • {p.category || "Sin categoría"}
+                      </div>
+                    </div>
+                    <div className="grid gap-1">
+                      <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => onEditProduct(p)}>
+                        Editar
+                      </button>
+                      <button
+                        className="text-xs px-2 py-1 rounded-lg bg-gray-100"
+                        onClick={() => onToggleProductActive(p.id)}
+                      >
+                        {p.active ? "Desactivar" : "Activar"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    C: {currency(p.costPerKg ?? undefined)}/{unitLabel(p)} • PV receta: {currency(p.pricePerKg ?? undefined)}/
+                    {unitLabel(p)} • PVP tienda: {currency(p.priceStore ?? undefined)} • Stock: {Number(p.stockKg || 0).toFixed(2)}{' '}
+                    {unitLabel(p)}
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
-          </div>
-        )}
-      </>
-    )}
-  </div>
-)}
+          </Section>
+
+          <Section title="Seguridad">
+            <div className="flex items-center gap-2">
+              <input
+                className="flex-1 px-3 py-2 rounded-xl border"
+                placeholder="Nuevo PIN"
+                onChange={(e) => setPinInput(e.target.value)}
+              />
+              <button
+                className="px-3 py-2 rounded-xl bg-gray-100"
+                onClick={() => {
+                  if (!pinInput.trim()) return alert("Ingresá un PIN");
+                  savePin(pinInput.trim());
+                  setPinInput("");
+                  alert("PIN actualizado");
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </Section>
+        </>
+      )}
+    </div>
+  );
+}
 
 /* =============================
    Tests (sanity checks)
