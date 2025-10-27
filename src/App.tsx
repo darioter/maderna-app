@@ -219,6 +219,9 @@ export default function App() {
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
   const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
+   // Confirmación para eliminar una venta
+  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
+
 
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
@@ -384,7 +387,124 @@ export default function App() {
     for (const l of draftLines) adjustStock(l.productId, -l.qtyKg);
     setDraftLines([]);
     alert(`Comanda ${number} generada. Total: ${currency(total)}`);
+     function deleteOrder(id: string) {
+  const ord = orders.find((o) => o.id === id);
+  if (!ord) return;
+  // Restaurar stock
+  for (const l of ord.lines) {
+    adjustStock(l.productId, l.qtyKg);
   }
+  const next = orders.filter((o) => o.id !== id);
+  setOrders(next);
+  saveOrders(next);
+}
+
+function handleDeleteOrderClick(id: string) {
+  if (deleteOrderAskId !== id) {
+    setDeleteOrderAskId(id);
+    window.setTimeout(() => {
+      setDeleteOrderAskId((curr) => (curr === id ? null : curr));
+    }, 4000);
+    return;
+  }
+  deleteOrder(id);
+  setDeleteOrderAskId(null);
+   {/* Productos (activar/editar) */}
+<Section
+  title="Productos (activar/editar)"
+  right={
+    <button
+      className="px-3 py-2 rounded-xl bg-black text-white"
+      onClick={() =>
+        setEditing({
+          id: uid(),
+          name: "",
+          hex: "#cccccc",
+          costPerKg: 0,
+          pricePerKg: 0,
+          priceStore: 0,
+          category: "",
+          code: "",
+          barcode: "",
+          stockKg: 0,
+          active: true,
+        })
+      }
+    >
+      + Nuevo
+    </button>
+  }
+>
+  <div className="space-y-2">
+    {products.map((p) => (
+      <div key={p.id} className="p-3 rounded-2xl border">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
+          <div className="flex-1 min-w-0">
+            <div className="font-medium truncate">{p.name || <i className="text-gray-400">(sin nombre)</i>}</div>
+            <div className="text-xs text-gray-500">
+              {p.code} • {p.category || "Sin categoría"}
+            </div>
+          </div>
+          <div className="grid gap-1">
+            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>
+              Editar
+            </button>
+            <button
+              className="text-xs px-2 py-1 rounded-lg bg-gray-100"
+              onClick={() =>
+                setProducts((prev) =>
+                  prev.map((px) => (px.id === p.id ? { ...px, active: !px.active } : px))
+                )
+              }
+            >
+              {p.active ? "Desactivar" : "Activar"}
+            </button>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500 mt-2">
+          C: {currency(p.costPerKg ?? undefined)}/{unitLabel(p)} • PV receta: {currency(p.pricePerKg ?? undefined)}/{unitLabel(p)} • PVP tienda: {currency(p.priceStore ?? undefined)} • Stock: {Number(p.stockKg || 0).toFixed(2)} {unitLabel(p)}
+        </div>
+      </div>
+    ))}
+  </div>
+</Section>
+
+{/* Modal editor producto */}
+{editing && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
+    <div className="bg-white rounded-2xl p-4 w-full max-w-md">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold">Editar producto</h3>
+        <button className="text-sm" onClick={() => setEditing(null)}>✕</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input className="col-span-2 px-3 py-2 rounded-xl border" placeholder="Nombre" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+        <input className="px-3 py-2 rounded-xl border" placeholder="Código" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+        <input className="px-3 py-2 rounded-xl border" placeholder="Categoría" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
+        <input className="px-3 py-2 rounded-xl border" placeholder="Barras" value={editing.barcode || ""} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
+        <input className="px-3 py-2 rounded-xl border" placeholder="#HEX" value={editing.hex} onChange={(e) => setEditing({ ...editing, hex: e.target.value })} />
+        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Costo/${unitLabel(editing as Product)}`} value={editing.costPerKg ?? 0} onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })} />
+        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`PV receta/${unitLabel(editing as Product)}`} value={editing.pricePerKg ?? 0} onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })} />
+        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder="PVP tienda" value={editing.priceStore ?? 0} onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })} />
+        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Stock ${unitLabel(editing as Product)}`} value={editing.stockKg} onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })} />
+        <div className="col-span-2 flex items-center justify-between mt-2">
+          <label className="text-sm flex items-center gap-2">
+            <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
+            Activo
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
+            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing!)}>Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+}
+
 
   /* =============================
      Reportes
@@ -408,6 +528,19 @@ export default function App() {
   const olderPendings = useMemo(
     () => orders.filter((o) => o.status !== "entregada" && dateOf(o.createdAt) < reportDate),
     [orders, reportDate]
+// Editor modal de producto
+const [editing, setEditing] = useState<Product | null>(null);
+
+function saveProduct(p: Product) {
+  setProducts((prev) => {
+    const exists = prev.some((x) => x.id === p.id);
+    const next = exists ? prev.map((x) => (x.id === p.id ? { ...x, ...p } : x)) : [p, ...prev];
+    saveProducts(next);
+    return next;
+  });
+  setEditing(null);
+}
+
   );
 
   /* =============================
