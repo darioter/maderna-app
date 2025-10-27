@@ -1,9 +1,8 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/src/App.tsx b/src/App.tsx
-index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc9755909c35f75 100644
+index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..57ac8dc3e9390278d9141251cada9660c680cf93 100644
 --- a/src/App.tsx
 +++ b/src/App.tsx
-@@ -1,145 +1,193 @@
+@@ -1,145 +1,194 @@
 -import React, { useEffect, useMemo, useState } from "react";
 -// --- Estados auxiliares (confirmación de borrar venta) ---
 -const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
@@ -44,7 +43,8 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc97559
 -  deleteOrder(id);
 -  setDeleteOrderAskId(null);
 -}
-+import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
++import type { FC, ReactNode } from "react";
++import { useEffect, useMemo, useState } from "react";
  
  /* =============================
     Utilidades & Constantes
@@ -239,7 +239,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc97559
  
  // =============================
  // Persistencia
-@@ -192,97 +240,94 @@ function saveProductions(list: Production[]) {
+@@ -192,97 +241,94 @@ function saveProductions(list: Production[]) {
  function loadSeq(): number {
    const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
    return Number.isFinite(n) ? n : 0;
@@ -341,7 +341,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc97559
    function addProduction(productId: string, qtyKg: number, date: string) {
      const prod: Production = { id: uid(), productId, qtyKg, date };
      setProductions((prev) => [prod, ...prev]);
-@@ -301,98 +346,148 @@ export default function App() {
+@@ -301,98 +347,148 @@ export default function App() {
    function handleDeleteClick(id: string) {
      if (deleteAskId !== id) {
        setDeleteAskId(id);
@@ -491,7 +491,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc97559
        }
      }
      const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
-@@ -404,204 +499,74 @@ export default function App() {
+@@ -404,204 +500,74 @@ export default function App() {
      const lines: OrderLine[] = draftLines.map((l) => {
        const p = products.find((x) => x.id === l.productId)!;
        return {
@@ -696,7 +696,7 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc97559
        </header>
  
        {/* Main */}
-@@ -908,360 +873,470 @@ function saveProduct(p: Product) {
+@@ -908,360 +874,470 @@ function saveProduct(p: Product) {
                        <div className="text-sm font-semibold">{Number(p.stockKg || 0).toFixed(2)} {unitLabel(p)}</div>
                      </div>
                    ))}
@@ -1367,6 +1367,3 @@ index 89a8c01c183bbd2e55e8be9144732988dc91b3f5..b517a7e63083bd8549da5eb67fc97559
    const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
    console.assert(TABS.length === 5, "Debe haber 5 tabs");
  }
- 
-EOF
-)
