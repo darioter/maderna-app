@@ -4,36 +4,132 @@ import { fetchAll, subscribeAll, upsertProduct, createProduction, deleteProducti
 /* =============================
    Utilidades & Constantes
 ============================= */
-const LS_KEYS = {
-  products: "maderna_products_v1",
-  orders: "maderna_orders_v1",
-  productions: "maderna_productions_v1",
-  orderSeq: "maderna_order_seq_v1",
-  pin: "maderna_admin_pin_v1",
-};
+const [products, setProducts] = useState<Product[]>([]);
+const [orders, setOrders] = useState<Order[]>([]);
+const [productions, setProductions] = useState<Production[]>([]);
+const [loading, setLoading] = useState(true);
 
-function currency(n?: number) {
-  if (n == null || Number.isNaN(Number(n))) return "—";
-  try {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      maximumFractionDigits: 0,
-    }).format(Number(n));
-  } catch {
-    return `${n}`;
-  }
-}
+useEffect(() => {
+  (async () => {
+    const data = await fetchAll();
+    // Mapear tipos DB → tipos UI
+    setProducts(data.products.map(p => ({
+      id: p.id,
+      name: p.name,
+      hex: p.hex,
+      costPerKg: p.cost_per_kg,
+      pricePerKg: p.price_per_kg,
+      priceStore: p.price_store,
+      category: p.category,
+      code: p.code,
+      barcode: p.barcode || '',
+      stockKg: Number(p.stock_kg || 0),
+      active: !!p.active,
+    })));
 
-function todayISO() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split("T")[0];
-}
+    // Orders + lines
+    const linesByOrder = data.orderLines.reduce<Record<string, any[]>>((acc, l) => {
+      (acc[l.order_id] ||= []).push(l);
+      return acc;
+    }, {});
+    setOrders(data.orders.map(o => ({
+      id: o.id,
+      number: o.number,
+      createdAt: o.created_at,
+      total: Number(o.total || 0),
+      partyName: o.party_name || '',
+      payment: o.payment,
+      status: o.status,
+      lines: (linesByOrder[o.id] || []).map(l => ({
+        id: l.id,
+        productId: l.product_id,
+        qtyKg: Number(l.qty_kg),
+        pricePerKgAtSale: Number(l.price_per_kg_at_sale),
+      })),
+    })));
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
+    setProductions(data.productions.map(pr => ({
+      id: pr.id,
+      productId: pr.product_id,
+      qtyKg: Number(pr.qty_kg),
+      date: pr.date,
+    })));
+
+    setLoading(false);
+  })();
+
+  // realtime
+  const off = subscribeAll((table, event, row) => {
+    // Productos
+    if (table === 'products') {
+      setProducts(prev => {
+        if (event === 'DELETE') return prev.filter(x => x.id !== row.id);
+        const mapped = {
+          id: row.id,
+          name: row.name,
+          hex: row.hex,
+          costPerKg: row.cost_per_kg,
+          pricePerKg: row.price_per_kg,
+          priceStore: row.price_store,
+          category: row.category,
+          code: row.code,
+          barcode: row.barcode || '',
+          stockKg: Number(row.stock_kg || 0),
+          active: !!row.active,
+        } as Product;
+        const exists = prev.some(x => x.id === row.id);
+        return exists ? prev.map(x => x.id === row.id ? mapped : x) : [mapped, ...prev];
+      });
+    }
+
+    // Producciones
+    if (table === 'productions') {
+      if (event === 'DELETE') {
+        setProductions(prev => prev.filter(x => x.id !== row.id));
+      } else {
+        const mapped: Production = {
+          id: row.id,
+          productId: row.product_id,
+          qtyKg: Number(row.qty_kg),
+          date: row.date,
+        };
+        setProductions(prev => {
+          const exists = prev.some(x => x.id === row.id);
+          return exists ? prev.map(x => x.id === row.id ? mapped : x) : [mapped, ...prev];
+        });
+      }
+    }
+
+    // Orders + lines: para simplificar, ante cambios en orders u order_lines
+    // volvemos a pedir todo (son pocos rows). Si querés, optimizamos luego.
+    if (table === 'orders' || table === 'order_lines') {
+      (async () => {
+        const data = await fetchAll();
+        const linesByOrder = data.orderLines.reduce<Record<string, any[]>>((acc, l) => {
+          (acc[l.order_id] ||= []).push(l);
+          return acc;
+        }, {});
+        setOrders(data.orders.map(o => ({
+          id: o.id,
+          number: o.number,
+          createdAt: o.created_at,
+          total: Number(o.total || 0),
+          partyName: o.party_name || '',
+          payment: o.payment,
+          status: o.status,
+          lines: (linesByOrder[o.id] || []).map(l => ({
+            id: l.id,
+            productId: l.product_id,
+            qtyKg: Number(l.qty_kg),
+            pricePerKgAtSale: Number(l.price_per_kg_at_sale),
+          })),
+        })));
+      })();
+    }
+  });
+  return () => off();
+}, []);
+
 
 /* =============================
    Tipos
