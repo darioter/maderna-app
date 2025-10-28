@@ -1,8 +1,3 @@
-// ANTES (falla)
-export function onProductsInsert(payload) { /* ... */ }
-export function onProductsUpdate(payload) { /* ... */ }
-export function onOrdersInsert(payload) { /* ... */ }
-export function onOrdersUpdate(payload) { /* ... */ }
 
 // DESPUÉS (compila)
 export function onProductsInsert(payload: any) { /* ... */ }
