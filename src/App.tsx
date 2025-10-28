@@ -343,12 +343,16 @@ async function removeProduction(id: string) {
     }
   }
 
-  function updateOrder(id: string, patch: Partial<Order>) {
-    setOrders((prev) => {
-      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
-      saveOrders(next);
-      return next;
-    });
+  async function updateOrderUI(id: string, patch: Partial<Order>) {
+  // Actualiza en DB
+  await sbUpdateOrder(id, {
+    party_name: patch.partyName,
+    payment: patch.payment as any,
+    status: patch.status as any,
+  });
+  // UI local se refresca por realtime; si querés, también podés mutar local
+}
+
   }
 
   type DraftLine = { id: string; productId: string; qtyKg: number };
