@@ -354,20 +354,26 @@ async function saveProduct(p: Product) {
       setPinOk(true);
       setIsAdmin(true);
       setPinInput("");
-    } else {
-      alert("PIN incorrecto");
-    }
-     // Borra una comanda y restaura stock de sus líneas
+    // Borra una comanda y RESTAURA el stock de sus líneas
 function deleteOrderAndRestoreStock(orderId: string) {
   setOrders((prev) => {
     const ord = prev.find((o) => o.id === orderId);
     if (!ord) return prev;
 
-    // restaurar stock
+    // Restaurar stock de cada línea
     ord.lines.forEach((l) => {
       adjustStock(l.productId, l.qtyKg);
     });
 
+    const next = prev.filter((o) => o.id !== orderId);
+    saveOrders(next); // persistir
+    return next;
+  });
+}
+} else {
+      alert("PIN incorrecto");
+    }
+   
     const next = prev.filter((o) => o.id !== orderId);
     saveOrders(next); // persiste en localStorage
     return next;
@@ -888,152 +894,129 @@ function deleteOrderAndRestoreStock(orderId: string) {
           </div>
         )}
 
-        {/* Admin */}
-        {tab === "admin" && (
-          <div>
-            {!pinOk ? (
-              <Section title="Acceso administrador">
-                <div className="space-y-3">
-                  <input
-                    className="w-full px-3 py-2 rounded-xl border"
-                    placeholder="PIN"
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
-                    type="password"
-                    inputMode="numeric"
-                  />
-                  <button className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold" onClick={() => tryLogin(pinInput)}>
-                    Entrar
-                  </button>
-                  <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
-                </div>
-              </Section>
-            ) : (
-              <>
-                <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
-                  <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                    {productions.map((pr) => {
-                      const p = products.find((x) => x.id === pr.productId);
-                      return (
-                        <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
-                          <div className="text-sm truncate">
-                            <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} • <span className="text-gray-500">{pr.date}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
-                              Editar
-                            </button>
-                            <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
-                              {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
-                  </div>
-                </Section>
-
-                {/* Ventas: eliminar por error */}
-                <Section title="Ventas (eliminar por error)" right={<Pill text={`Total: ${orders.length}`} />}>
-                  <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                    {orders.slice(0, 30).map((o) => (
-                      <div key={o.id} className="p-3 rounded-2xl border bg-white">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{o.number}</div>
-                          <div className="text-sm">{currency(o.total)}</div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} • {o.status === "entregada" ? "Entregada" : "Abierta"}
-                        </div>
-
-                        <div className="mt-2 text-xs">
-                          {o.lines.map((l) => {
-                            const p = products.find((x) => x.id === l.productId);
-                            return (
-                              <div key={l.id} className="flex justify-between">
-                                <span>{p?.name || "Producto"} × {l.qtyKg}</span>
-                                <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div className="mt-2 flex items-center justify-end">
-                          <button
-                            className={`px-2 py-1 text-xs rounded-lg ${
-                              o.status === "entregada"
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-red-100"
-                            }`}
-                            onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
-                            disabled={o.status === "entregada"}
-                            title={o.status === "entregada"
-                              ? "No se puede eliminar una venta entregada"
-                              : "Eliminar comanda y restaurar stock"}
-                          >
-                            {o.status === "entregada"
-                              ? "No disponible"
-                              : deleteOrderAskId === o.id
-                              ? "Confirmar eliminar"
-                              : "Eliminar"}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-                  </div>
-                </Section>
-
-                 <Section title="Ventas (eliminar por error)">
-  <div className="space-y-2 max-h-72 overflow-auto pr-1">
-    {orders.slice(0, 30).map((o) => (
-      <div key={o.id} className="p-3 rounded-2xl border bg-white">
-        <div className="flex items-center justify-between">
-          <div className="font-medium">{o.number}</div>
-          <div className="text-sm">{currency(o.total)}</div>
-        </div>
-        <div className="text-xs text-gray-500">
-          {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} • {o.status === "entregada" ? "Entregada" : "Abierta"}
-        </div>
-
-        <div className="mt-2 text-xs">
-          {o.lines.map(l => {
-            const p = products.find(x => x.id === l.productId);
-            return (
-              <div key={l.id} className="flex justify-between">
-                <span>{p?.name || "Producto"} × {l.qtyKg}</span>
-                <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-2 flex items-center justify-end">
+{/* Admin */}
+{tab === "admin" && (
+  <div>
+    {!pinOk ? (
+      <Section title="Acceso administrador">
+        <div className="space-y-3">
+          <input
+            className="w-full px-3 py-2 rounded-xl border"
+            placeholder="PIN"
+            value={pinInput}
+            onChange={(e) => setPinInput(e.target.value)}
+            type="password"
+            inputMode="numeric"
+          />
           <button
-            className={`px-2 py-1 text-xs rounded-lg ${
-              o.status === "entregada"
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-red-100"
-            }`}
-            onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
-            disabled={o.status === "entregada"}
-            title={o.status === "entregada"
-              ? "No se puede eliminar una venta entregada"
-              : "Eliminar comanda y restaurar stock"}
+            className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
+            onClick={() => tryLogin(pinInput)}
           >
-            {o.status === "entregada"
-              ? "No disponible"
-              : deleteOrderAskId === o.id
-              ? "Confirmar eliminar"
-              : "Eliminar"}
+            Entrar
           </button>
+          <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
         </div>
-      </div>
-    ))}
-    {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+      </Section>
+    ) : (
+      <>
+        {/* Producciones */}
+        <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
+          <div className="space-y-2 max-h-72 overflow-auto pr-1">
+            {productions.map((pr) => {
+              const p = products.find((x) => x.id === pr.productId);
+              return (
+                <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
+                  <div className="text-sm truncate">
+                    <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
+                    <span className="text-gray-500">{pr.date}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
+                      Editar
+                    </button>
+                    <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
+                      {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
+          </div>
+        </Section>
+
+        {/* Ventas (eliminar por error) */}
+        <Section
+          title="Ventas (eliminar por error)"
+          right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0,10) === today).length}`} />}
+        >
+          <div className="space-y-2 max-h-72 overflow-auto pr-1">
+            {orders.slice(0, 30).map((o) => (
+              <div key={o.id} className="p-3 rounded-2xl border bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{o.number}</div>
+                  <div className="text-sm">{currency(o.total)}</div>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
+                  {o.status === "entregada" ? "Entregada" : "Abierta"}
+                </div>
+
+                <div className="mt-2 text-xs">
+                  {o.lines.map((l) => {
+                    const p = products.find((x) => x.id === l.productId);
+                    return (
+                      <div key={l.id} className="flex justify-between">
+                        <span>{p?.name || "Producto"} × {l.qtyKg}</span>
+                        <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-2 flex items-center justify-end">
+                  <button
+                    className={`px-2 py-1 text-xs rounded-lg ${
+                      o.status === "entregada"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : deleteOrderAskId === o.id
+                          ? "bg-red-200"
+                          : "bg-red-100"
+                    }`}
+                    onClick={() => {
+                      if (o.status === "entregada") return;
+                      if (deleteOrderAskId !== o.id) {
+                        setDeleteOrderAskId(o.id);
+                        window.setTimeout(() => setDeleteOrderAskId(curr => (curr === o.id ? null : curr)), 4000);
+                        return;
+                      }
+                      deleteOrderAndRestoreStock(o.id);
+                      setDeleteOrderAskId(null);
+                    }}
+                    disabled={o.status === "entregada"}
+                    title={
+                      o.status === "entregada"
+                        ? "No se puede eliminar una venta entregada"
+                        : "Eliminar comanda y restaurar stock"
+                    }
+                  >
+                    {o.status === "entregada"
+                      ? "No disponible"
+                      : deleteOrderAskId === o.id
+                        ? "Confirmar eliminar"
+                        : "Eliminar"}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+          </div>
+        </Section>
+      </>
+    )}
   </div>
-</Section>
+)}
+
 
 
                 {/* Productos: activar/editar */}
