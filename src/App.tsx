@@ -247,7 +247,7 @@ export default function App() {
   const [editing, setEditing] = useState<Product | null>(null);
 
   // para eliminar ventas por error
-  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
+  
 
   // persistir en cambios
   useEffect(() => saveProducts(products), [products]);
@@ -300,6 +300,22 @@ async function removeProduction(id: string) {
   if (p) await upsertProduct({ id: p.id, stock_kg: Math.max(0, (p.stockKg || 0) - pr.qtyKg) });
   // 2) borrar producción
   await sbDeleteProduction(id);
+}
+async function saveProduct(p: Product) {
+  await upsertProduct({
+    id: p.id,
+    name: p.name,
+    hex: p.hex,
+    cost_per_kg: p.costPerKg ?? null,
+    price_per_kg: p.pricePerKg ?? null,
+    price_store: p.priceStore ?? null,
+    category: p.category,
+    code: p.code,
+    barcode: p.barcode || null,
+    stock_kg: p.stockKg,
+    active: !!p.active
+  });
+  setEditing(null);
 }
 
   }
@@ -448,12 +464,7 @@ async function removeProduction(id: string) {
   }
 
   // eliminar comanda por error (si NO está entregada), con doble confirmación + restaurar stock
-  function deleteOrder(id: string) {
-    const ord = orders.find((o) => o.id === id);
-    if (!ord) return;
-    if (ord.status === "entregada") {
-      alert("No se puede eliminar una venta entregada.");
-      return;
+  
     }
     // restaurar stock
     for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
@@ -937,6 +948,57 @@ async function removeProduction(id: string) {
                     {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
                   </div>
                 </Section>
+
+                 <Section title="Ventas (eliminar por error)">
+  <div className="space-y-2 max-h-72 overflow-auto pr-1">
+    {orders.slice(0, 30).map((o) => (
+      <div key={o.id} className="p-3 rounded-2xl border bg-white">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">{o.number}</div>
+          <div className="text-sm">{currency(o.total)}</div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} • {o.status === "entregada" ? "Entregada" : "Abierta"}
+        </div>
+
+        <div className="mt-2 text-xs">
+          {o.lines.map(l => {
+            const p = products.find(x => x.id === l.productId);
+            return (
+              <div key={l.id} className="flex justify-between">
+                <span>{p?.name || "Producto"} × {l.qtyKg}</span>
+                <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-2 flex items-center justify-end">
+          <button
+            className={`px-2 py-1 text-xs rounded-lg ${
+              o.status === "entregada"
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-red-100"
+            }`}
+            onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
+            disabled={o.status === "entregada"}
+            title={o.status === "entregada"
+              ? "No se puede eliminar una venta entregada"
+              : "Eliminar comanda y restaurar stock"}
+          >
+            {o.status === "entregada"
+              ? "No disponible"
+              : deleteOrderAskId === o.id
+              ? "Confirmar eliminar"
+              : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    ))}
+    {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+  </div>
+</Section>
+
 
                 {/* Productos: activar/editar */}
                 <Section
