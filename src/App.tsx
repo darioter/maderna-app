@@ -371,14 +371,44 @@ async function removeProduction(id: string) {
     }, 0);
   }, [draftLines, products]);
 
-  function issueOrder() {
-    if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
-    for (const l of draftLines) {
-      const p = products.find((x) => x.id === l.productId);
-      if (!p) continue;
-      if (p.stockKg < l.qtyKg) {
-        return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
-      }
+  async function issueOrder() {
+  if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
+  for (const l of draftLines) {
+    const p = products.find((x) => x.id === l.productId);
+    if (!p) continue;
+    if (p.stockKg < l.qtyKg) {
+      return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
+    }
+  }
+
+  const date = new Date();
+  const compactDate = date.toISOString().slice(0,10).split("-").join("");
+  const seqLocal = String(Math.floor(date.getTime() / 1000)).slice(-4); // id simple; si querés, podés consultar conteo remoto del día
+  const number = `M-${compactDate}-${seqLocal}`;
+
+  const lines = draftLines.map((l) => {
+    const p = products.find((x) => x.id === l.productId)!;
+    return {
+      product_id: l.productId,
+      qty_kg: l.qtyKg,
+      price_per_kg_at_sale: Number((p.priceStore ?? p.pricePerKg) || 0),
+    };
+  });
+
+  const total = lines.reduce((acc, l) => acc + l.qty_kg * l.price_per_kg_at_sale, 0);
+
+  await sbCreateOrder({
+    number,
+    lines,
+    total,
+    payment: 'efectivo',
+    status: 'abierta',
+  });
+
+  setDraftLines([]);
+  alert(`Comanda ${number} generada.`);
+}
+
     }
     const seq = loadSeq() + 1;
     saveSeq(seq);
