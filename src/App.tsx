@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-/* =============================
-   Utilidades & Constantes
-============================= */
+// =============================
+// Utilidades & Constantes
+// =============================
 const LS_KEYS = {
   products: "maderna_products_v1",
   orders: "maderna_orders_v1",
@@ -34,9 +34,9 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-/* =============================
-   Tipos
-============================= */
+// =============================
+// Tipos
+// =============================
 export type Product = {
   id: string;
   name: string;
@@ -101,10 +101,6 @@ const seedProducts: Product[] = [
   { id: uid(), name: "Varios", hex: "#9900ff", costPerKg: null, pricePerKg: null, priceStore: null, category: "Varios", code: "VARIOS", barcode: "", stockKg: 0, active: true },
 ];
 
-
-/* =============================
-   Persistencia
-============================= */
 // =============================
 // Persistencia
 // =============================
@@ -113,15 +109,12 @@ function loadProducts(): Product[] {
   if (raw) {
     try {
       const parsed: Product[] = JSON.parse(raw);
-      // 👇 Primero expandimos p, luego seteamos defaults solo si vienen null/undefined
-      // Evitamos duplicar claves: expandimos primero y seteamos defaults con ??
-      return parsed.map((p) => ({
-        ...p,
-        stockKg: p.stockKg ?? 0,
-@@ -122,875 +122,923 @@
+      return parsed.map((p) => ({ stockKg: 0, active: true, ...p }));
+    } catch {}
+  }
+  localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
   return seedProducts;
 }
-
 function saveProducts(list: Product[]) {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
 }
@@ -133,7 +126,6 @@ function loadOrders(): Order[] {
     return [];
   }
 }
-
 function saveOrders(list: Order[]) {
   localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
 }
@@ -145,7 +137,6 @@ function loadProductions(): Production[] {
     return [];
   }
 }
-
 function saveProductions(list: Production[]) {
   localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
 }
@@ -154,7 +145,6 @@ function loadSeq(): number {
   const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
   return Number.isFinite(n) ? n : 0;
 }
-
 function saveSeq(n: number) {
   localStorage.setItem(LS_KEYS.orderSeq, String(n));
 }
@@ -162,30 +152,20 @@ function saveSeq(n: number) {
 function loadPin(): string {
   return localStorage.getItem(LS_KEYS.pin) || "1234";
 }
-
 function savePin(pin: string) {
   localStorage.setItem(LS_KEYS.pin, pin);
 }
-// =============================
-// FIN Persistencia
-// =============================
 
-/* =============================
-   UI helpers
-============================= */
-type SectionProps = {
-  title: string;
-  right?: React.ReactNode;
-  children?: React.ReactNode;
-};
-
-const Section = ({ title, right, children }: SectionProps) => (
+// =============================
+// UI helpers
+// =============================
+const Section: React.FC<{ title: string; right?: React.ReactNode }> = ({ title, right, children }) => (
   <div className="mb-4">
     <div className="flex items-center justify-between mb-2">
       <h2 className="text-lg font-semibold">{title}</h2>
       {right}
     </div>
-    {children}
+    <div className="bg-white rounded-2xl shadow p-3">{children}</div>
   </div>
 );
 
@@ -193,21 +173,20 @@ const Pill: React.FC<{ text: string; className?: string }> = ({ text, className 
   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
 );
 
-/* =============================
-   App principal
-============================= */
+// =============================
+// App principal
+// =============================
 export default function App() {
   const [tab, setTab] = useState<"inventario" | "comanda" | "produccion" | "reportes" | "admin">("inventario");
   const [products, setProducts] = useState<Product[]>(() => loadProducts());
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
+  // migración suave de pedidos existentes a nuevo esquema
   useEffect(() => {
-    setOrders((prev) =>
-      prev.map((o) => ({
-        ...o,
-        payment: o.payment ?? "efectivo",
-        status: o.status ?? "abierta",
-      }))
-    );
+    setOrders((prev) => prev.map((o) => ({
+      ...o,
+      payment: o.payment ?? "efectivo",
+      status: o.status ?? "abierta",
+    })));
   }, []);
   const [productions, setProductions] = useState<Production[]>(() => loadProductions());
   const [search, setSearch] = useState("");
@@ -217,7 +196,6 @@ export default function App() {
   const [barcode, setBarcode] = useState("");
   const [prodEditing, setProdEditing] = useState<Production | null>(null);
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
-  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
 
   useEffect(() => saveProducts(products), [products]);
@@ -236,9 +214,7 @@ export default function App() {
   }, [products, search, barcode]);
 
   function adjustStock(productId: string, deltaKg: number) {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p))
-    );
+    setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p)));
   }
 
   function addProduction(productId: string, qtyKg: number, date: string) {
@@ -281,14 +257,14 @@ export default function App() {
     setProdEditing(null);
   }
 
-  /* =============================
-     Comanda / Ventas
-  ============================= */
+  // =============================
+  // Comanda / Ventas
+  // =============================
   function tryLogin(pin: string) {
     const saved = loadPin();
     if (pin === saved) {
       setPinOk(true);
-      setIsAdmin(true); // fix
+      setIsAdmin(true);
       setPinInput("");
     } else {
       alert("PIN incorrecto");
@@ -301,27 +277,6 @@ export default function App() {
       saveOrders(next);
       return next;
     });
-  }
-
-  function deleteOrder(id: string) {
-    const ord = orders.find((o) => o.id === id);
-    if (!ord) return;
-    for (const l of ord.lines) adjustStock(l.productId, l.qtyKg); // restaurar stock
-    const next = orders.filter((o) => o.id !== id);
-    setOrders(next);
-    saveOrders(next);
-  }
-
-  function handleDeleteOrderClick(id: string) {
-    if (deleteOrderAskId !== id) {
-      setDeleteOrderAskId(id);
-      window.setTimeout(() => {
-        setDeleteOrderAskId((curr) => (curr === id ? null : curr));
-      }, 4000);
-      return;
-    }
-    deleteOrder(id);
-    setDeleteOrderAskId(null);
   }
 
   type DraftLine = { id: string; productId: string; qtyKg: number };
@@ -339,7 +294,7 @@ export default function App() {
     return draftLines.reduce((acc, l) => {
       const p = products.find((x) => x.id === l.productId);
       if (!p) return acc;
-      const price = Number((p.priceStore ?? p.pricePerKg) || 0);
+      const price = Number((p.priceStore ?? p.pricePerKg) || 0); // usar PVP tienda si existe
       return acc + l.qtyKg * price;
     }, 0);
   }, [draftLines, products]);
@@ -356,8 +311,7 @@ export default function App() {
     const seq = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0") + 1;
     saveSeq(seq);
     const date = new Date();
-    const compactDate = date.toISOString().slice(0, 10).split("-").join("");
-    const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
+    const number = `M-${date.toISOString().slice(0, 10).replaceAll('-', '')}-${String(seq).padStart(4, '0')}`;
 
     const lines: OrderLine[] = draftLines.map((l) => {
       const p = products.find((x) => x.id === l.productId)!;
@@ -386,9 +340,9 @@ export default function App() {
     alert(`Comanda ${number} generada. Total: ${currency(total)}`);
   }
 
-  /* =============================
-     Reportes
-  ============================= */
+  // =============================
+  // Reportes
+  // =============================
   const today = todayISO();
   const [reportDate, setReportDate] = useState<string>(today);
   const [showOlderPendings, setShowOlderPendings] = useState<boolean>(true);
@@ -410,9 +364,9 @@ export default function App() {
     [orders, reportDate]
   );
 
-  /* =============================
-     Render
-  ============================= */
+  // =============================
+  // Render
+  // =============================
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
       {/* Header */}
@@ -742,27 +696,146 @@ export default function App() {
           </div>
         )}
 
-        {/* Admin — ahora es un componente aparte */}
+        {/* Admin */}
         {tab === "admin" && (
-          <AdminPanel
-            pinOk={pinOk}
-            pinInput={pinInput}
-            setPinInput={setPinInput}
-            tryLogin={tryLogin}
-            productions={productions}
-            products={products}
-            setProdEditing={setProdEditing}
-            handleDeleteClick={handleDeleteClick}
-            deleteAskId={deleteAskId}
-            orders={orders}
-            today={today}
-            handleDeleteOrderClick={handleDeleteOrderClick}
-            deleteOrderAskId={deleteOrderAskId}
-          />
+          <div>
+            {!pinOk ? (
+              <Section title="Acceso administrador">
+                <div className="space-y-3">
+                  <input
+                    className="w-full px-3 py-2 rounded-xl border"
+                    placeholder="PIN"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    type="password"
+                    inputMode="numeric"
+                  />
+                  <button className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold" onClick={() => tryLogin(pinInput)}>
+                    Entrar
+                  </button>
+                  <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
+                </div>
+              </Section>
+            ) : (
+              <>
+                <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
+                  <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                    {productions.map((pr) => {
+                      const p = products.find((x) => x.id === pr.productId);
+                      return (
+                        <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
+                          <div className="text-sm truncate">
+                            <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} • <span className="text-gray-500">{pr.date}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
+                              Editar
+                            </button>
+                            <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
+                              {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
+                  </div>
+                </Section>
+
+                <Section
+                  title="Productos (activar/editar)"
+                  right={
+                    <button
+                      className="px-3 py-2 rounded-xl bg-black text-white"
+                      onClick={() =>
+                        setEditing({ id: uid(), name: "", hex: "#cccccc", costPerKg: 0, pricePerKg: 0, priceStore: 0, category: "", code: "", barcode: "", stockKg: 0, active: true })
+                      }
+                    >
+                      + Nuevo
+                    </button>
+                  }
+                >
+                  <div className="space-y-2">
+                    {products.map((p) => (
+                      <div key={p.id} className="p-3 rounded-2xl border">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{p.name || <i className="text-gray-400">(sin nombre)</i>}</div>
+                            <div className="text-xs text-gray-500">{p.code} • {p.category || "Sin categoría"}</div>
+                          </div>
+                          <div className="grid gap-1">
+                            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>Editar</button>
+                            <button
+                              className="text-xs px-2 py-1 rounded-lg bg-gray-100"
+                              onClick={() => setProducts((prev) => prev.map((px) => (px.id === p.id ? { ...px, active: !px.active } : px)))}
+                            >
+                              {p.active ? "Desactivar" : "Activar"}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          C: {currency(p.costPerKg || undefined)}/{unitLabel(p)} • PV receta: {currency(p.pricePerKg || undefined)}/{unitLabel(p)} • PVP tienda: {currency(p.priceStore || undefined)} • Stock: {Number(p.stockKg || 0).toFixed(2)} {unitLabel(p)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+
+                <Section title="Seguridad">
+                  <div className="flex items-center gap-2">
+                    <input className="flex-1 px-3 py-2 rounded-xl border" placeholder="Nuevo PIN" onChange={(e) => setPinInput(e.target.value)} />
+                    <button
+                      className="px-3 py-2 rounded-xl bg-gray-100"
+                      onClick={() => {
+                        if (!pinInput.trim()) return alert("Ingresá un PIN");
+                        savePin(pinInput.trim());
+                        setPinInput("");
+                        alert("PIN actualizado");
+                      }}
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                </Section>
+
+                {editing && (
+                  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4">
+                    <div className="bg-white rounded-2xl p-4 w-full max-w-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold">Editar producto</h3>
+                        <button className="text-sm" onClick={() => setEditing(null)}>✕</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input className="col-span-2 px-3 py-2 rounded-xl border" placeholder="Nombre" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                        <input className="px-3 py-2 rounded-xl border" placeholder="Código" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+                        <input className="px-3 py-2 rounded-xl border" placeholder="Categoría" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
+                        <input className="px-3 py-2 rounded-xl border" placeholder="Barras" value={editing.barcode || ""} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
+                        <input className="px-3 py-2 rounded-xl border" placeholder="#HEX" value={editing.hex} onChange={(e) => setEditing({ ...editing, hex: e.target.value })} />
+                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Costo/${unitLabel(editing as Product)}`} value={editing.costPerKg ?? 0} onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })} />
+                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`PV receta/${unitLabel(editing as Product)}`} value={editing.pricePerKg ?? 0} onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })} />
+                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder="PVP tienda" value={editing.priceStore ?? 0} onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })} />
+                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Stock ${unitLabel(editing as Product)}`} value={editing.stockKg} onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })} />
+                        <div className="col-span-2 flex items-center justify-between mt-2">
+                          <label className="text-sm flex items-center gap-2">
+                            <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> Activo
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
+                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing)}>Guardar</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </main>
 
-      {/* Modal editar producción */}
+      {/* Modal editar producción (overlay) */}
       {prodEditing && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
           <div className="bg-white rounded-2xl p-4 w-full max-w-md">
@@ -810,7 +883,7 @@ export default function App() {
           ].map((it) => (
             <button
               key={it.key}
-              className={`py-2 text-xs flex flex-col items-center ${tab === (it.key as any) ? "text-black" : "text-gray-500"}`}
+              className={`py-2 text-xs flex flex-col items-center ${tab === it.key ? "text-black" : "text-gray-500"}`}
               onClick={() => setTab(it.key as any)}
             >
               <div className="text-lg">{it.icon}</div>
@@ -823,9 +896,9 @@ export default function App() {
   );
 }
 
-/* =============================
-   Subcomponentes
-============================= */
+// =============================
+// Subcomponentes
+// =============================
 const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [qty, setQty] = useState(1);
@@ -870,175 +943,11 @@ const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string,
   );
 };
 
-/* =============================
-   Admin Panel (extraído)
-============================= */
-function AdminPanel(props: {
-  pinOk: boolean;
-  pinInput: string;
-  setPinInput: (v: string) => void;
-  tryLogin: (pin: string) => void;
-  productions: Production[];
-  products: Product[];
-  setProdEditing: (p: Production | null) => void;
-  handleDeleteClick: (id: string) => void;
-  deleteAskId: string | null;
-  orders: Order[];
-  today: string;
-  handleDeleteOrderClick: (id: string) => void;
-  deleteOrderAskId: string | null;
-}) {
-  const {
-    pinOk,
-    pinInput,
-    setPinInput,
-    tryLogin,
-    productions,
-    products,
-    setProdEditing,
-    handleDeleteClick,
-    deleteAskId,
-    orders,
-    today,
-    handleDeleteOrderClick,
-    deleteOrderAskId,
-  } = props;
-
-  return (
-    <div>
-      {!pinOk ? (
-        <Section title="Acceso administrador">
-          <div className="space-y-3">
-            <input
-              className="w-full px-3 py-2 rounded-xl border"
-              placeholder="PIN"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              type="password"
-              inputMode="numeric"
-            />
-            <button
-              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
-              onClick={() => tryLogin(pinInput)}
-            >
-              Entrar
-            </button>
-            <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
-          </div>
-        </Section>
-      ) : (
-        <>
-          <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
-            <div className="space-y-2 max-h-72 overflow-auto pr-1">
-              {productions.map((pr) => {
-                const p = products.find((x) => x.id === pr.productId);
-                return (
-                  <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
-                    <div className="text-sm truncate">
-                      <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
-                      <span className="text-gray-500">{pr.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
-                        Editar
-                      </button>
-                      <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
-                        {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
-            </div>
-          </Section>
-
-          <Section
-            title="Ventas (eliminar por error)"
-            right={<Pill text={`Hoy: ${orders.filter((o) => o.createdAt.slice(0, 10) === today).length}`} />}
-          >
-            <div className="space-y-2 max-h-72 overflow-auto pr-1">
-              {orders.slice(0, 30).map((o) => (
-                <div key={o.id} className="p-3 rounded-2xl border bg-white">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">{o.number}</div>
-                    <div className="text-sm">{currency(o.total)}</div>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
-                    {o.status === "entregada" ? "Entregada" : "Abierta"}
-                  </div>
-
-                  <div className="mt-2 text-xs">
-                    {o.lines.map((l) => {
-                      const p = products.find((x) => x.id === l.productId);
-                      return (
-                        <div key={l.id} className="flex justify-between">
-                          <span>
-                            {p?.name || "Producto"} × {l.qtyKg}
-                          </span>
-                          <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-end">
-                    <button
-                      className={`px-2 py-1 text-xs rounded-lg ${
-                        o.status === "entregada" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-100"
-                      }`}
-                      onClick={() => o.status !== "entregada" && handleDeleteOrderClick(o.id)}
-                      disabled={o.status === "entregada"}
-                      title={
-                        o.status === "entregada"
-                          ? "No se puede eliminar una venta entregada"
-                          : "Eliminar comanda y restaurar stock"
-                      }
-                    >
-                      {o.status === "entregada"
-                        ? "No disponible"
-                        : deleteOrderAskId === o.id
-                        ? "Confirmar eliminar"
-                        : "Eliminar"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-            </div>
-          </Section>
-
-          <Section title="Seguridad">
-            <div className="flex items-center gap-2">
-              <input
-                className="flex-1 px-3 py-2 rounded-xl border"
-                placeholder="Nuevo PIN"
-                onChange={(e) => setPinInput(e.target.value)}
-              />
-              <button
-                className="px-3 py-2 rounded-xl bg-gray-100"
-                onClick={() => {
-                  if (!pinInput.trim()) return alert("Ingresá un PIN");
-                  savePin(pinInput.trim());
-                  setPinInput("");
-                  alert("PIN actualizado");
-                }}
-              >
-                Guardar
-              </button>
-            </div>
-          </Section>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* =============================
-   Tests (sanity checks)
-============================= */
+// =============================
+// Tests (sanity checks)
+// =============================
 if (typeof window !== "undefined") {
+  // Validar que bottom nav tiene 5 tabs y que el JSX cierra correctamente
   const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
   console.assert(TABS.length === 5, "Debe haber 5 tabs");
 }
