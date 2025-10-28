@@ -1,135 +1,36 @@
-import { fetchAll, subscribeAll, upsertProduct, createProduction, deleteProduction as sbDeleteProduction, createOrder as sbCreateOrder, updateOrder as sbUpdateOrder, undoOrder } from './lib/sync';
-
+import React, { useEffect, useMemo, useState } from "react";
 
 /* =============================
    Utilidades & Constantes
 ============================= */
-const [products, setProducts] = useState<Product[]>([]);
-const [orders, setOrders] = useState<Order[]>([]);
-const [productions, setProductions] = useState<Production[]>([]);
-const [loading, setLoading] = useState(true);
+const LS_KEYS = {
+  products: "maderna_products_v1",
+  orders: "maderna_orders_v1",
+  productions: "maderna_productions_v1",
+  orderSeq: "maderna_order_seq_v1",
+  pin: "maderna_admin_pin_v1",
+};
 
-useEffect(() => {
-  (async () => {
-    const data = await fetchAll();
-    // Mapear tipos DB → tipos UI
-    setProducts(data.products.map(p => ({
-      id: p.id,
-      name: p.name,
-      hex: p.hex,
-      costPerKg: p.cost_per_kg,
-      pricePerKg: p.price_per_kg,
-      priceStore: p.price_store,
-      category: p.category,
-      code: p.code,
-      barcode: p.barcode || '',
-      stockKg: Number(p.stock_kg || 0),
-      active: !!p.active,
-    })));
-
-    // Orders + lines
-    const linesByOrder = data.orderLines.reduce<Record<string, any[]>>((acc, l) => {
-      (acc[l.order_id] ||= []).push(l);
-      return acc;
-    }, {});
-    setOrders(data.orders.map(o => ({
-      id: o.id,
-      number: o.number,
-      createdAt: o.created_at,
-      total: Number(o.total || 0),
-      partyName: o.party_name || '',
-      payment: o.payment,
-      status: o.status,
-      lines: (linesByOrder[o.id] || []).map(l => ({
-        id: l.id,
-        productId: l.product_id,
-        qtyKg: Number(l.qty_kg),
-        pricePerKgAtSale: Number(l.price_per_kg_at_sale),
-      })),
-    })));
-
-    setProductions(data.productions.map(pr => ({
-      id: pr.id,
-      productId: pr.product_id,
-      qtyKg: Number(pr.qty_kg),
-      date: pr.date,
-    })));
-
-    setLoading(false);
-  })();
-
-  // realtime
-  const off = subscribeAll((table, event, row) => {
-    // Productos
-    if (table === 'products') {
-      setProducts(prev => {
-        if (event === 'DELETE') return prev.filter(x => x.id !== row.id);
-        const mapped = {
-          id: row.id,
-          name: row.name,
-          hex: row.hex,
-          costPerKg: row.cost_per_kg,
-          pricePerKg: row.price_per_kg,
-          priceStore: row.price_store,
-          category: row.category,
-          code: row.code,
-          barcode: row.barcode || '',
-          stockKg: Number(row.stock_kg || 0),
-          active: !!row.active,
-        } as Product;
-        const exists = prev.some(x => x.id === row.id);
-        return exists ? prev.map(x => x.id === row.id ? mapped : x) : [mapped, ...prev];
-      });
-    }
-
-    // Producciones
-    if (table === 'productions') {
-      if (event === 'DELETE') {
-        setProductions(prev => prev.filter(x => x.id !== row.id));
-      } else {
-        const mapped: Production = {
-          id: row.id,
-          productId: row.product_id,
-          qtyKg: Number(row.qty_kg),
-          date: row.date,
-        };
-        setProductions(prev => {
-          const exists = prev.some(x => x.id === row.id);
-          return exists ? prev.map(x => x.id === row.id ? mapped : x) : [mapped, ...prev];
-        });
-      }
-    }
-
-    // Orders + lines: para simplificar, ante cambios en orders u order_lines
-    // volvemos a pedir todo (son pocos rows). Si querés, optimizamos luego.
-    if (table === 'orders' || table === 'order_lines') {
-      (async () => {
-        const data = await fetchAll();
-        const linesByOrder = data.orderLines.reduce<Record<string, any[]>>((acc, l) => {
-          (acc[l.order_id] ||= []).push(l);
-          return acc;
-        }, {});
-        setOrders(data.orders.map(o => ({
-          id: o.id,
-          number: o.number,
-          createdAt: o.created_at,
-          total: Number(o.total || 0),
-          partyName: o.party_name || '',
-          payment: o.payment,
-          status: o.status,
-          lines: (linesByOrder[o.id] || []).map(l => ({
-            id: l.id,
-            productId: l.product_id,
-            qtyKg: Number(l.qty_kg),
-            pricePerKgAtSale: Number(l.price_per_kg_at_sale),
-          })),
-        })));
-      })();
-    }
-  });
-  return () => off();
-}, []);
-
+function currency(n?: number) {
+  if (n == null || isNaN(n as number)) return "—";
+  try {
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 0,
+    }).format(Number(n));
+  } catch {
+    return `${n}`;
+  }
+}
+function todayISO() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split("T")[0];
+}
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
 /* =============================
    Tipos
@@ -147,14 +48,12 @@ export type Product = {
   stockKg: number; // si es "unid", representa unidades
   active?: boolean;
 };
-
 export type OrderLine = {
   id: string;
   productId: string;
   qtyKg: number; // kg o unidades
   pricePerKgAtSale: number; // PVP congelado al momento de la venta
 };
-
 export type Order = {
   id: string;
   number: string;
@@ -165,7 +64,6 @@ export type Order = {
   payment?: "efectivo" | "mp";
   status?: "abierta" | "entregada";
 };
-
 export type Production = {
   id: string;
   productId: string;
@@ -201,6 +99,57 @@ const seedProducts: Product[] = [
 /* =============================
    Persistencia
 ============================= */
+function loadProducts(): Product[] {
+  const raw = localStorage.getItem(LS_KEYS.products);
+  if (raw) {
+    try {
+      const parsed: Product[] = JSON.parse(raw);
+      return parsed.map((p) => ({
+        ...p,
+        stockKg: p.stockKg ?? 0,
+        active: p.active ?? true,
+      }));
+    } catch { /* ignore */ }
+  }
+  localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
+  return seedProducts;
+}
+function saveProducts(list: Product[]) {
+  localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
+}
+function loadOrders(): Order[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.orders) || "[]");
+  } catch {
+    return [];
+  }
+}
+function saveOrders(list: Order[]) {
+  localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
+}
+function loadProductions(): Production[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.productions) || "[]");
+  } catch {
+    return [];
+  }
+}
+function saveProductions(list: Production[]) {
+  localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
+}
+function loadSeq(): number {
+  const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
+  return Number.isFinite(n) ? n : 0;
+}
+function saveSeq(n: number) {
+  localStorage.setItem(LS_KEYS.orderSeq, String(n));
+}
+function loadPin(): string {
+  return localStorage.getItem(LS_KEYS.pin) || "1234";
+}
+function savePin(pin: string) {
+  localStorage.setItem(LS_KEYS.pin, pin);
+}
 
 /* =============================
    UI helpers
@@ -210,7 +159,6 @@ type SectionProps = {
   right?: React.ReactNode;
   children?: React.ReactNode;
 };
-
 const Section = ({ title, right, children }: SectionProps) => (
   <div className="mb-4">
     <div className="flex items-center justify-between mb-2">
@@ -220,42 +168,126 @@ const Section = ({ title, right, children }: SectionProps) => (
     {children}
   </div>
 );
-
 const Pill: React.FC<{ text: string; className?: string }> = ({ text, className }) => (
   <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 ${className || ""}`}>{text}</span>
 );
+
+/* =============================
+   Subcomponentes
+============================= */
+const ProductionForm: React.FC<{
+  products: Product[];
+  onAdd: (productId: string, qtyKg: number, date: string) => void;
+}> = ({ products, onAdd }) => {
+  const [productId, setProductId] = useState(products[0]?.id || "");
+  const [qty, setQty] = useState(1);
+  const [date, setDate] = useState(todayISO());
+  const prd = products.find((p) => p.id === productId);
+  const isUnid = prd ? unitLabel(prd) === "unid" : false;
+
+  return (
+    <div className="grid gap-2">
+      <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
+        {products.filter((p) => p.active).map((p) => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </select>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min={isUnid ? 1 : 0.1}
+          step={isUnid ? 1 : 0.1}
+          className="flex-1 px-3 py-2 rounded-xl border"
+          value={qty}
+          onChange={(e) => setQty(Number(e.target.value))}
+        />
+        <span className="text-sm text-gray-600">{prd ? unitLabel(prd) : "kg"}</span>
+      </div>
+      <input type="date" className="px-3 py-2 rounded-xl border" value={date} onChange={(e) => setDate(e.target.value)} />
+      <button
+        className="w-full mt-1 py-3 rounded-2xl bg-black text-white font-semibold"
+        onClick={() => {
+          if (!productId) return alert("Elegí un producto");
+          if (!qty || qty <= 0) return alert("Cantidad inválida");
+          onAdd(productId, qty, date);
+          setQty(1);
+        }}
+      >
+        Cargar producción
+      </button>
+    </div>
+  );
+};
+
+// Admin: lista de ventas y permite eliminar (doble confirmación)
+type AdminSalesManagerProps = {
+  orders: Order[];
+  products: Product[];
+  onDelete: (orderId: string) => void;
+};
+const AdminSalesManager: React.FC<AdminSalesManagerProps> = ({ orders, products, onDelete }) => {
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const today = todayISO();
+  return (
+    <Section title="Ventas (eliminar por error)" right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0, 10) === today).length}`} />}>
+      <div className="space-y-2 max-h-72 overflow-auto pr-1">
+        {orders.slice(0, 30).map((o) => (
+          <div key={o.id} className="p-3 rounded-2xl border bg-white">
+            <div className="flex items-center justify-between">
+              <div className="font-medium">{o.number}</div>
+              <div className="text-sm">{currency(o.total)}</div>
+            </div>
+            <div className="text-xs text-gray-500">
+              {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} • {o.status === "entregada" ? "Entregada" : "Abierta"}
+            </div>
+            <div className="mt-2 text-xs">
+              {o.lines.map((l) => {
+                const p = products.find((x) => x.id === l.productId);
+                return (
+                  <div key={l.id} className="flex justify-between">
+                    <span>{p?.name || "Producto"} × {l.qtyKg} {p ? unitLabel(p) : "kg"}</span>
+                    <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex items-center justify-end">
+              <button
+                className={`px-2 py-1 text-xs rounded-lg ${o.status === "entregada" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-100"}`}
+                onClick={() => {
+                  if (o.status === "entregada") return;
+                  if (confirmId !== o.id) {
+                    setConfirmId(o.id);
+                    window.setTimeout(() => setConfirmId((c) => (c === o.id ? null : c)), 3500);
+                    return;
+                  }
+                  onDelete(o.id);
+                  setConfirmId(null);
+                }}
+                disabled={o.status === "entregada"}
+                title={o.status === "entregada" ? "No se puede eliminar una venta entregada" : "Eliminar comanda y restaurar stock"}
+              >
+                {o.status === "entregada" ? "No disponible" : confirmId === o.id ? "Confirmar eliminar" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        ))}
+        {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
+      </div>
+    </Section>
+  );
+};
 
 /* =============================
    App principal
 ============================= */
 export default function App() {
   const [tab, setTab] = useState<"inventario" | "comanda" | "produccion" | "reportes" | "admin">("inventario");
+
   const [products, setProducts] = useState<Product[]>(() => loadProducts());
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
-  const [productions, setProductions] = useState<Production[]>(() => loadProductions());
-
-  const [search, setSearch] = useState("");
-  const [barcode, setBarcode] = useState("");
-
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-  const [pinOk, setPinOk] = useState(false);
-
-  const [prodEditing, setProdEditing] = useState<Production | null>(null);
-  const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
-  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Product | null>(null);
-
-  // para eliminar ventas por error
-  
-
-  // persistir en cambios
-  useEffect(() => saveProducts(products), [products]);
-  useEffect(() => saveOrders(orders), [orders]);
-  useEffect(() => saveProductions(productions), [productions]);
-
-  // migración suave de pedidos existentes a nuevo esquema
   useEffect(() => {
+    // migración suave a nuevos campos
     setOrders((prev) =>
       prev.map((o) => ({
         ...o,
@@ -264,6 +296,24 @@ export default function App() {
       }))
     );
   }, []);
+  const [productions, setProductions] = useState<Production[]>(() => loadProductions());
+
+  const [search, setSearch] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinOk, setPinOk] = useState(false);
+  const [barcode, setBarcode] = useState("");
+  const [prodEditing, setProdEditing] = useState<Production | null>(null);
+  const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
+
+  // admin ventas (doble confirm)
+  const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
+
+  const [editing, setEditing] = useState<Product | null>(null);
+
+  useEffect(() => saveProducts(products), [products]);
+  useEffect(() => saveOrders(orders), [orders]);
+  useEffect(() => saveProductions(productions), [productions]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -283,43 +333,19 @@ export default function App() {
       )
     );
   }
-
-  async function addProduction(productId: string, qtyKg: number, date: string) {
-  // 1) crear producción
-  await createProduction({ product_id: productId, qty_kg: qtyKg, date });
-  // 2) subir stock
-  const p = products.find(x => x.id === productId);
-  if (p) await upsertProduct({ id: productId, stock_kg: (p.stockKg || 0) + qtyKg });
-}
-
-async function removeProduction(id: string) {
-  const pr = productions.find(x => x.id === id);
-  if (!pr) return;
-  // 1) restar stock
-  const p = products.find(x => x.id === pr.productId);
-  if (p) await upsertProduct({ id: p.id, stock_kg: Math.max(0, (p.stockKg || 0) - pr.qtyKg) });
-  // 2) borrar producción
-  await sbDeleteProduction(id);
-}
-async function saveProduct(p: Product) {
-  await upsertProduct({
-    id: p.id,
-    name: p.name,
-    hex: p.hex,
-    cost_per_kg: p.costPerKg ?? null,
-    price_per_kg: p.pricePerKg ?? null,
-    price_store: p.priceStore ?? null,
-    category: p.category,
-    code: p.code,
-    barcode: p.barcode || null,
-    stock_kg: p.stockKg,
-    active: !!p.active
-  });
-  setEditing(null);
-}
-
+  function addProduction(productId: string, qtyKg: number, date: string) {
+    const prod: Production = { id: uid(), productId, qtyKg, date };
+    setProductions((prev) => [prod, ...prev]);
+    adjustStock(productId, qtyKg);
   }
-
+  function deleteProduction(id: string) {
+    const pr = productions.find((x) => x.id === id);
+    if (!pr) return;
+    adjustStock(pr.productId, -pr.qtyKg);
+    const next = productions.filter((x) => x.id !== id);
+    setProductions(next);
+    saveProductions(next);
+  }
   function handleDeleteClick(id: string) {
     if (deleteAskId !== id) {
       setDeleteAskId(id);
@@ -331,7 +357,6 @@ async function saveProduct(p: Product) {
     deleteProduction(id);
     setDeleteAskId(null);
   }
-
   function updateProduction(id: string, newQtyKg: number, newDate: string) {
     setProductions((prev) => {
       const pr = prev.find((x) => x.id === id);
@@ -354,61 +379,16 @@ async function saveProduct(p: Product) {
       setPinOk(true);
       setIsAdmin(true);
       setPinInput("");
-    // Borra una comanda y RESTAURA el stock de sus líneas
-function deleteOrderAndRestoreStock(orderId: string) {
-  setOrders((prev) => {
-    const ord = prev.find((o) => o.id === orderId);
-    if (!ord) return prev;
-
-    // Restaurar stock de cada línea
-    ord.lines.forEach((l) => {
-      adjustStock(l.productId, l.qtyKg);
-    });
-
-    const next = prev.filter((o) => o.id !== orderId);
-    saveOrders(next); // persistir
-    return next;
-  });
-}
-} else {
+    } else {
       alert("PIN incorrecto");
     }
-   
-    const next = prev.filter((o) => o.id !== orderId);
-    saveOrders(next); // persiste en localStorage
-    return next;
-  });
-}
-
-     // Borra una comanda y restaura stock de sus líneas
-function deleteOrderAndRestoreStock(orderId: string) {
-  setOrders((prev) => {
-    const ord = prev.find((o) => o.id === orderId);
-    if (!ord) return prev;
-
-    // restaurar stock
-    ord.lines.forEach((l) => {
-      adjustStock(l.productId, l.qtyKg);
-    });
-
-    const next = prev.filter((o) => o.id !== orderId);
-    saveOrders(next); // persiste en localStorage
-    return next;
-  });
-}
-
   }
-
-  async function updateOrderUI(id: string, patch: Partial<Order>) {
-  // Actualiza en DB
-  await sbUpdateOrder(id, {
-    party_name: patch.partyName,
-    payment: patch.payment as any,
-    status: patch.status as any,
-  });
-  // UI local se refresca por realtime; si querés, también podés mutar local
-}
-
+  function updateOrder(id: string, patch: Partial<Order>) {
+    setOrders((prev) => {
+      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
+      saveOrders(next);
+      return next;
+    });
   }
 
   type DraftLine = { id: string; productId: string; qtyKg: number };
@@ -426,54 +406,23 @@ function deleteOrderAndRestoreStock(orderId: string) {
     return draftLines.reduce((acc, l) => {
       const p = products.find((x) => x.id === l.productId);
       if (!p) return acc;
-      const price = Number((p.priceStore ?? p.pricePerKg) || 0); // usar PVP tienda si existe
+      const price = Number((p.priceStore ?? p.pricePerKg) || 0);
       return acc + l.qtyKg * price;
     }, 0);
   }, [draftLines, products]);
 
-  async function issueOrder() {
-  if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
-  for (const l of draftLines) {
-    const p = products.find((x) => x.id === l.productId);
-    if (!p) continue;
-    if (p.stockKg < l.qtyKg) {
-      return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
-    }
-  }
-
-  const date = new Date();
-  const compactDate = date.toISOString().slice(0,10).split("-").join("");
-  const seqLocal = String(Math.floor(date.getTime() / 1000)).slice(-4); // id simple; si querés, podés consultar conteo remoto del día
-  const number = `M-${compactDate}-${seqLocal}`;
-
-  const lines = draftLines.map((l) => {
-    const p = products.find((x) => x.id === l.productId)!;
-    return {
-      product_id: l.productId,
-      qty_kg: l.qtyKg,
-      price_per_kg_at_sale: Number((p.priceStore ?? p.pricePerKg) || 0),
-    };
-  });
-
-  const total = lines.reduce((acc, l) => acc + l.qty_kg * l.price_per_kg_at_sale, 0);
-
-  await sbCreateOrder({
-    number,
-    lines,
-    total,
-    payment: 'efectivo',
-    status: 'abierta',
-  });
-
-  setDraftLines([]);
-  alert(`Comanda ${number} generada.`);
-}
-
+  function issueOrder() {
+    if (!draftLines.length) return alert("Agregá al menos un ítem a la comanda.");
+    for (const l of draftLines) {
+      const p = products.find((x) => x.id === l.productId);
+      if (!p) continue;
+      if (p.stockKg < l.qtyKg) {
+        return alert(`Stock insuficiente en ${p.name}. Disponible: ${p.stockKg} ${unitLabel(p)}`);
+      }
     }
     const seq = loadSeq() + 1;
     saveSeq(seq);
-    const date = new Date();
-    const compactDate = date.toISOString().slice(0, 10).split("-").join("");
+    const compactDate = new Date().toISOString().slice(0, 10).split("-").join("");
     const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
 
     const lines: OrderLine[] = draftLines.map((l) => {
@@ -503,23 +452,14 @@ function deleteOrderAndRestoreStock(orderId: string) {
     alert(`Comanda ${number} generada. Total: ${currency(total)}`);
   }
 
-  // eliminar comanda por error (si NO está entregada), con doble confirmación + restaurar stock
-  
-    }
-    // restaurar stock
+  // eliminar venta (admin) con restauración de stock
+  function deleteOrder(orderId: string) {
+    const ord = orders.find((o) => o.id === orderId);
+    if (!ord) return;
     for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
-    const next = orders.filter((o) => o.id !== id);
+    const next = orders.filter((o) => o.id !== orderId);
     setOrders(next);
     saveOrders(next);
-  }
-  function handleDeleteOrderClick(id: string) {
-    if (deleteOrderAskId !== id) {
-      setDeleteOrderAskId(id);
-      window.setTimeout(() => setDeleteOrderAskId((curr) => (curr === id ? null : curr)), 4000);
-      return;
-    }
-    deleteOrder(id);
-    setDeleteOrderAskId(null);
   }
 
   /* =============================
@@ -546,9 +486,7 @@ function deleteOrderAndRestoreStock(orderId: string) {
     [orders, reportDate]
   );
 
-  /* =============================
-     Guardar/editar productos
-  ============================= */
+  // guardar/editar producto
   function saveProduct(p: Product) {
     setProducts((prev) => {
       const exists = prev.some((x) => x.id === p.id);
@@ -665,8 +603,6 @@ function deleteOrderAndRestoreStock(orderId: string) {
                 })}
                 {!productions.length && <div className="text-sm text-gray-500">Sin registros todavía.</div>}
               </div>
-               <AdminSalesManager orders={orders} products={products} onDelete={deleteOrderAndRestoreStock} />
-
             </Section>
           </div>
         )}
@@ -686,20 +622,17 @@ function deleteOrderAndRestoreStock(orderId: string) {
                         value={l.productId}
                         onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x)))}
                       >
-                        {products.filter((x) => x.active).map((p2) => (
-                          <option key={p2.id} value={p2.id}>
-                            {p2.name}
-                          </option>
+                        {products.filter((x) => x.active).map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
                       </select>
                       <input
                         type="number"
-                        className="w-24 max-w-[6rem] px-2 py-2 rounded-lg border text-right" /* fix móvil */
+                        className="w-20 shrink-0 px-2 py-2 rounded-lg border text-right"
                         value={l.qtyKg}
                         onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x)))}
                         min={isUnid ? 1 : 0.1}
                         step={isUnid ? 1 : 0.1}
-                        inputMode="decimal"
                       />
                       <span className="text-xs text-gray-500">{p ? unitLabel(p) : "kg"}</span>
                       <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => removeDraftLine(l.id)}>
@@ -732,7 +665,6 @@ function deleteOrderAndRestoreStock(orderId: string) {
                     </div>
                     <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleString()}</div>
 
-                    {/* tracking */}
                     <div className="mt-2 grid gap-2">
                       <input
                         className="px-2 py-2 rounded-lg border text-sm"
@@ -775,9 +707,7 @@ function deleteOrderAndRestoreStock(orderId: string) {
                         const p = products.find((x) => x.id === l.productId);
                         return (
                           <div key={l.id} className="flex justify-between">
-                            <span>
-                              {p?.name} × {l.qtyKg} {p ? unitLabel(p) : "kg"}
-                            </span>
+                            <span>{p?.name} × {l.qtyKg} {p ? unitLabel(p) : "kg"}</span>
                             <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
                           </div>
                         );
@@ -894,132 +824,52 @@ function deleteOrderAndRestoreStock(orderId: string) {
           </div>
         )}
 
-{/* Admin */}
-{tab === "admin" && (
-  <div>
-    {!pinOk ? (
-      <Section title="Acceso administrador">
-        <div className="space-y-3">
-          <input
-            className="w-full px-3 py-2 rounded-xl border"
-            placeholder="PIN"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            type="password"
-            inputMode="numeric"
-          />
-          <button
-            className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold"
-            onClick={() => tryLogin(pinInput)}
-          >
-            Entrar
-          </button>
-          <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
-        </div>
-      </Section>
-    ) : (
-      <>
-        {/* Producciones */}
-        <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {productions.map((pr) => {
-              const p = products.find((x) => x.id === pr.productId);
-              return (
-                <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
-                  <div className="text-sm truncate">
-                    <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} •{" "}
-                    <span className="text-gray-500">{pr.date}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
-                      Editar
-                    </button>
-                    <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
-                      {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
-          </div>
-        </Section>
-
-        {/* Ventas (eliminar por error) */}
-        <Section
-          title="Ventas (eliminar por error)"
-          right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0,10) === today).length}`} />}
-        >
-          <div className="space-y-2 max-h-72 overflow-auto pr-1">
-            {orders.slice(0, 30).map((o) => (
-              <div key={o.id} className="p-3 rounded-2xl border bg-white">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{o.number}</div>
-                  <div className="text-sm">{currency(o.total)}</div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
-                  {o.status === "entregada" ? "Entregada" : "Abierta"}
-                </div>
-
-                <div className="mt-2 text-xs">
-                  {o.lines.map((l) => {
-                    const p = products.find((x) => x.id === l.productId);
-                    return (
-                      <div key={l.id} className="flex justify-between">
-                        <span>{p?.name || "Producto"} × {l.qtyKg}</span>
-                        <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-2 flex items-center justify-end">
-                  <button
-                    className={`px-2 py-1 text-xs rounded-lg ${
-                      o.status === "entregada"
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : deleteOrderAskId === o.id
-                          ? "bg-red-200"
-                          : "bg-red-100"
-                    }`}
-                    onClick={() => {
-                      if (o.status === "entregada") return;
-                      if (deleteOrderAskId !== o.id) {
-                        setDeleteOrderAskId(o.id);
-                        window.setTimeout(() => setDeleteOrderAskId(curr => (curr === o.id ? null : curr)), 4000);
-                        return;
-                      }
-                      deleteOrderAndRestoreStock(o.id);
-                      setDeleteOrderAskId(null);
-                    }}
-                    disabled={o.status === "entregada"}
-                    title={
-                      o.status === "entregada"
-                        ? "No se puede eliminar una venta entregada"
-                        : "Eliminar comanda y restaurar stock"
-                    }
-                  >
-                    {o.status === "entregada"
-                      ? "No disponible"
-                      : deleteOrderAskId === o.id
-                        ? "Confirmar eliminar"
-                        : "Eliminar"}
+        {/* Admin */}
+        {tab === "admin" && (
+          <div>
+            {!pinOk ? (
+              <Section title="Acceso administrador">
+                <div className="space-y-3">
+                  <input
+                    className="w-full px-3 py-2 rounded-xl border"
+                    placeholder="PIN"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    type="password"
+                    inputMode="numeric"
+                  />
+                  <button className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold" onClick={() => tryLogin(pinInput)}>
+                    Entrar
                   </button>
+                  <div className="text-xs text-gray-500">PIN por defecto: 1234</div>
                 </div>
-              </div>
-            ))}
-            {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-          </div>
-        </Section>
-      </>
-    )}
-  </div>
-)}
+              </Section>
+            ) : (
+              <>
+                <Section title="Producciones (borrar/ajustar)" right={<Pill text={`Total: ${productions.length}`} />}>
+                  <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                    {productions.map((pr) => {
+                      const p = products.find((x) => x.id === pr.productId);
+                      return (
+                        <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
+                          <div className="text-sm truncate">
+                            <b>{p?.name || "Producto"}</b> • {pr.qtyKg} {p ? unitLabel(p) : "kg"} • <span className="text-gray-500">{pr.date}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button className="px-2 py-1 text-xs bg-gray-100 rounded-lg" onClick={() => setProdEditing(pr)}>
+                              Editar
+                            </button>
+                            <button className="px-2 py-1 text-xs bg-red-100 rounded-lg" onClick={() => handleDeleteClick(pr.id)}>
+                              {deleteAskId === pr.id ? "Confirmar" : "Eliminar"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!productions.length && <div className="text-sm text-gray-500">Sin producciones cargadas.</div>}
+                  </div>
+                </Section>
 
-
-
-                {/* Productos: activar/editar */}
                 <Section
                   title="Productos (activar/editar)"
                   right={
@@ -1052,10 +902,14 @@ function deleteOrderAndRestoreStock(orderId: string) {
                           <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{p.name || <i className="text-gray-400">(sin nombre)</i>}</div>
-                            <div className="text-xs text-gray-500">{p.code} • {p.category || "Sin categoría"}</div>
+                            <div className="text-xs text-gray-500">
+                              {p.code} • {p.category || "Sin categoría"}
+                            </div>
                           </div>
                           <div className="grid gap-1">
-                            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>Editar</button>
+                            <button className="text-xs px-2 py-1 rounded-lg bg-gray-100" onClick={() => setEditing(p)}>
+                              Editar
+                            </button>
                             <button
                               className="text-xs px-2 py-1 rounded-lg bg-gray-100"
                               onClick={() => setProducts((prev) => prev.map((px) => (px.id === p.id ? { ...px, active: !px.active } : px)))}
@@ -1071,6 +925,36 @@ function deleteOrderAndRestoreStock(orderId: string) {
                     ))}
                   </div>
                 </Section>
+
+                <Section title="Seguridad">
+                  <div className="flex items-center gap-2">
+                    <input className="flex-1 px-3 py-2 rounded-xl border" placeholder="Nuevo PIN" onChange={(e) => setPinInput(e.target.value)} />
+                    <button
+                      className="px-3 py-2 rounded-xl bg-gray-100"
+                      onClick={() => {
+                        if (!pinInput.trim()) return alert("Ingresá un PIN");
+                        savePin(pinInput.trim());
+                        setPinInput("");
+                        alert("PIN actualizado");
+                      }}
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                </Section>
+
+                <AdminSalesManager
+                  orders={orders}
+                  products={products}
+                  onDelete={(orderId) => {
+                    const ord = orders.find((o) => o.id === orderId);
+                    if (!ord) return;
+                    for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
+                    const next = orders.filter((o) => o.id !== orderId);
+                    setOrders(next);
+                    saveOrders(next);
+                  }}
+                />
 
                 {/* Modal editar producto */}
                 {editing && (
@@ -1096,7 +980,7 @@ function deleteOrderAndRestoreStock(orderId: string) {
                           </label>
                           <div className="grid grid-cols-2 gap-2">
                             <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
-                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing as Product)}>Guardar</button>
+                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing!)}>Guardar</button>
                           </div>
                         </div>
                       </div>
@@ -1118,7 +1002,9 @@ function deleteOrderAndRestoreStock(orderId: string) {
               <button className="text-sm" onClick={() => setProdEditing(null)}>✕</button>
             </div>
             <div className="grid gap-2">
-              <div className="text-sm text-gray-600">{products.find((p) => p.id === prodEditing.productId)?.name}</div>
+              <div className="text-sm text-gray-600">
+                {products.find((p) => p.id === prodEditing.productId)?.name}
+              </div>
               <label className="text-xs">
                 Cantidad ({(() => { const prd = products.find((p) => p.id === prodEditing.productId); return prd ? unitLabel(prd) : "kg"; })()})
               </label>
@@ -1157,7 +1043,7 @@ function deleteOrderAndRestoreStock(orderId: string) {
           ].map((it) => (
             <button
               key={it.key}
-              className={`py-2 text-xs flex flex-col items-center ${tab === it.key ? "text-black" : "text-gray-500"}`}
+              className={`py-2 text-xs flex flex-col items-center ${tab === (it.key as any) ? "text-black" : "text-gray-500"}`}
               onClick={() => setTab(it.key as any)}
             >
               <div className="text-lg">{it.icon}</div>
@@ -1171,213 +1057,9 @@ function deleteOrderAndRestoreStock(orderId: string) {
 }
 
 /* =============================
-   Subcomponentes
+   Tests (sanity)
 ============================= */
-const ProductionForm: React.FC<{ products: Product[]; onAdd: (productId: string, qtyKg: number, date: string) => void }> = ({ products, onAdd }) => {
-  const [productId, setProductId] = useState(products[0]?.id || "");
-  const [qty, setQty] = useState(1);
-  const [date, setDate] = useState(todayISO());
-
-  const prd = products.find((p) => p.id === productId);
-  const isUnid = prd ? unitLabel(prd) === "unid" : false;
-
-  return (
-    <div className="grid gap-2">
-      <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
-        {products.filter((p) => p.active).map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min={isUnid ? 1 : 0.1}
-          step={isUnid ? 1 : 0.1}
-          className="flex-1 px-3 py-2 rounded-xl border"
-          value={qty}
-          onChange={(e) => setQty(Number(e.target.value))}
-          inputMode="decimal"
-        />
-        <span className="text-sm text-gray-600">{prd ? unitLabel(prd) : "kg"}</span>
-      </div>
-      <input type="date" className="px-3 py-2 rounded-xl border" value={date} onChange={(e) => setDate(e.target.value)} />
-      <button
-        className="w-full mt-1 py-3 rounded-2xl bg-black text-white font-semibold"
-        onClick={() => {
-          if (!productId) return alert("Elegí un producto");
-          if (!qty || qty <= 0) return alert("Cantidad inválida");
-          onAdd(productId, qty, date);
-          setQty(1);
-        }}
-      >
-        Cargar producción
-      </button>
-    </div>
-  );
-};
-type AdminSalesManagerProps = {
-  orders: Order[];
-  products: Product[];
-  onDelete: (orderId: string) => void;
-};
-
-const AdminSalesManager: React.FC<AdminSalesManagerProps> = ({ orders, products, onDelete }) => {
-  const [askId, setAskId] = useState<string | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <Section
-      title="Ventas (eliminar por error)"
-      right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0, 10) === today).length}`} />}
-    >
-      <div className="space-y-2 max-h-72 overflow-auto pr-1">
-        {orders.slice(0, 30).map((o) => (
-          <div key={o.id} className="p-3 rounded-2xl border bg-white">
-            <div className="flex items-center justify-between">
-              <div className="font-medium">{o.number}</div>
-              <div className="text-sm">{currency(o.total)}</div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
-              {o.status === "entregada" ? "Entregada" : "Abierta"}
-            </div>
-
-            <div className="mt-2 text-xs">
-              {o.lines.map((l) => {
-                const p = products.find((x) => x.id === l.productId);
-                return (
-                  <div key={l.id} className="flex justify-between">
-                    <span>{p?.name || "Producto"} × {l.qtyKg}</span>
-                    <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-2 flex items-center justify-end">
-              <button
-                className={`px-2 py-1 text-xs rounded-lg ${
-                  o.status === "entregada"
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : askId === o.id
-                      ? "bg-red-200"
-                      : "bg-red-100"
-                }`}
-                onClick={() => {
-                  if (o.status === "entregada") return; // no se eliminan entregadas
-                  if (askId !== o.id) {
-                    setAskId(o.id);
-                    window.setTimeout(() => setAskId((curr) => (curr === o.id ? null : curr)), 4000);
-                    return;
-                  }
-                  onDelete(o.id);
-                  setAskId(null);
-                }}
-                disabled={o.status === "entregada"}
-                title={
-                  o.status === "entregada"
-                    ? "No se puede eliminar una venta entregada"
-                    : "Eliminar comanda y restaurar stock"
-                }
-              >
-                {o.status === "entregada"
-                  ? "No disponible"
-                  : askId === o.id
-                    ? "Confirmar eliminar"
-                    : "Eliminar"}
-              </button>
-            </div>
-          </div>
-        ))}
-        {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-      </div>
-    </Section>
-  );
-};
-
-// sanity check
 if (typeof window !== "undefined") {
   const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
   console.assert(TABS.length === 5, "Debe haber 5 tabs");
 }
-type AdminSalesManagerProps = {
-  orders: Order[];
-  products: Product[];
-  onDelete: (orderId: string) => void;
-};
-
-const AdminSalesManager: React.FC<AdminSalesManagerProps> = ({ orders, products, onDelete }) => {
-  const [askId, setAskId] = useState<string | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <Section
-      title="Ventas (eliminar por error)"
-      right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0, 10) === today).length}`} />}
-    >
-      <div className="space-y-2 max-h-72 overflow-auto pr-1">
-        {orders.slice(0, 30).map((o) => (
-          <div key={o.id} className="p-3 rounded-2xl border bg-white">
-            <div className="flex items-center justify-between">
-              <div className="font-medium">{o.number}</div>
-              <div className="text-sm">{currency(o.total)}</div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {new Date(o.createdAt).toLocaleString()} • {o.payment === "mp" ? "Mercado Pago" : "Efectivo"} •{" "}
-              {o.status === "entregada" ? "Entregada" : "Abierta"}
-            </div>
-
-            <div className="mt-2 text-xs">
-              {o.lines.map((l) => {
-                const p = products.find((x) => x.id === l.productId);
-                return (
-                  <div key={l.id} className="flex justify-between">
-                    <span>{p?.name || "Producto"} × {l.qtyKg}</span>
-                    <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-2 flex items-center justify-end">
-              <button
-                className={`px-2 py-1 text-xs rounded-lg ${
-                  o.status === "entregada"
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : askId === o.id
-                      ? "bg-red-200"
-                      : "bg-red-100"
-                }`}
-                onClick={() => {
-                  if (o.status === "entregada") return; // no se eliminan entregadas
-                  if (askId !== o.id) {
-                    setAskId(o.id);
-                    window.setTimeout(() => setAskId((curr) => (curr === o.id ? null : curr)), 4000);
-                    return;
-                  }
-                  onDelete(o.id); // borra y restaura stock
-                  setAskId(null);
-                }}
-                disabled={o.status === "entregada"}
-                title={
-                  o.status === "entregada"
-                    ? "No se puede eliminar una venta entregada"
-                    : "Eliminar comanda y restaurar stock"
-                }
-              >
-                {o.status === "entregada"
-                  ? "No disponible"
-                  : askId === o.id
-                    ? "Confirmar eliminar"
-                    : "Eliminar"}
-              </button>
-            </div>
-          </div>
-        ))}
-        {!orders.length && <div className="text-sm text-gray-500">Sin ventas todavía.</div>}
-      </div>
-    </Section>
-  );
-};
