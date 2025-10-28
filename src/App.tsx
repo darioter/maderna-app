@@ -284,19 +284,24 @@ export default function App() {
     );
   }
 
-  function addProduction(productId: string, qtyKg: number, date: string) {
-    const prod: Production = { id: uid(), productId, qtyKg, date };
-    setProductions((prev) => [prod, ...prev]);
-    adjustStock(productId, qtyKg);
-  }
+  async function addProduction(productId: string, qtyKg: number, date: string) {
+  // 1) crear producción
+  await createProduction({ product_id: productId, qty_kg: qtyKg, date });
+  // 2) subir stock
+  const p = products.find(x => x.id === productId);
+  if (p) await upsertProduct({ id: productId, stock_kg: (p.stockKg || 0) + qtyKg });
+}
 
-  function deleteProduction(id: string) {
-    const pr = productions.find((x) => x.id === id);
-    if (!pr) return;
-    adjustStock(pr.productId, -pr.qtyKg);
-    const next = productions.filter((x) => x.id !== id);
-    setProductions(next);
-    saveProductions(next);
+async function removeProduction(id: string) {
+  const pr = productions.find(x => x.id === id);
+  if (!pr) return;
+  // 1) restar stock
+  const p = products.find(x => x.id === pr.productId);
+  if (p) await upsertProduct({ id: p.id, stock_kg: Math.max(0, (p.stockKg || 0) - pr.qtyKg) });
+  // 2) borrar producción
+  await sbDeleteProduction(id);
+}
+
   }
 
   function handleDeleteClick(id: string) {
