@@ -31,20 +31,27 @@ function todayISO() {
   return d.toISOString().split("T")[0];
 }
 function uid() {
-  return Math.random().toString(36).slice(2, 10);
+  return Math.random().toString(36).slice(2, 10);   
 }
+// ---- Sync placeholders (no-op). Reemplazar por la implementación real cuando actives Drive.
+// Dejá estas funciones si aún no existe ./lib/sync.ts
+function pushAllNow(): void {
+  // noop
+}
+
+/** Devuelve el último ISO guardado o epoch si no hay nada */
 function getUpdatedAt(): string {
   return localStorage.getItem(LS_KEYS.updatedAt) || "1970-01-01T00:00:00.000Z";
 }
+
+/** Setea updatedAt a ahora y lo retorna */
 function setUpdatedNow(): string {
   const now = new Date().toISOString();
   localStorage.setItem(LS_KEYS.updatedAt, now);
   return now;
 }
-// ---- Sync placeholders (no-op). Reemplazar por la implementación real cuando actives Drive.
-// Dejar estas 2 funciones si aún no creaste ./lib/sync.ts
-function pushAllNow(): void {}
-function setUpdatedNow(): void {}
+
+
 
 /* =============================
    Tipos
