@@ -1,5 +1,3 @@
-import { drivePull, drivePush, DriveDB } from './lib/driveSync';
-import React, { useEffect, useMemo, useState } from "react";
 import { wireAutoSync, pushDebounced, setUpdatedNow, getUpdatedAt, pullAll, pushAllNow } from './lib/sync';
 
 
@@ -35,23 +33,7 @@ function todayISO() {
 function uid() {
   return Math.random().toString(36).slice(2, 10);   
 }
-// ---- Sync placeholders (no-op). Reemplazar por la implementación real cuando actives Drive.
-// Dejá estas funciones si aún no existe ./lib/sync.ts
-function pushAllNow(): void {
-  // noop
-}
 
-/** Devuelve el último ISO guardado o epoch si no hay nada */
-function getUpdatedAt(): string {
-  return localStorage.getItem(LS_KEYS.updatedAt) || "1970-01-01T00:00:00.000Z";
-}
-
-/** Setea updatedAt a ahora y lo retorna */
-function setUpdatedNow(): string {
-  const now = new Date().toISOString();
-  localStorage.setItem(LS_KEYS.updatedAt, now);
-  return now;
-}
 
 
 
