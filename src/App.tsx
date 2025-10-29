@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useState } from "react";
 
 
 /* =============================
@@ -69,6 +68,31 @@ function todayISO() {
 }
 function uid() {
   return Math.random().toString(36).slice(2, 10);   
+}
+/* ======== SYNC SHIMS extra (no-op) ======== */
+/* Agregar en App.tsx, debajo de las otras shims (setUpdatedNow, getUpdatedAt, pushAllNow, pushDebounced) */
+
+type SyncResult = { ok: boolean; message?: string };
+
+/** Simula un push manual (no hace nada real) */
+async function drivePush(): Promise<SyncResult> {
+  // marcamos timestamp local para que el UI pueda usarlo
+  setUpdatedNow();
+  // en una integración real acá subirías a Drive/Supabase
+  return { ok: true, message: "Simulado: push ok" };
+}
+
+/** Simula un pull (no descarga nada real) */
+async function pullAll(): Promise<SyncResult> {
+  // en una integración real bajarías los JSON y reemplazarías localStorage
+  return { ok: true, message: "Simulado: pull ok" };
+}
+
+/** Simula el auto-sync; devuelve una función de “unsubscribe” */
+function wireAutoSync(): () => void {
+  // en una integración real podrías suscribirte a cambios remotos o a 'storage' events
+  // acá no hacemos nada y devolvemos un no-op para que el useEffect pueda limpiarse
+  return () => {};
 }
 
 
