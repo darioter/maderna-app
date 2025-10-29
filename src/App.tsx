@@ -1,3 +1,4 @@
+import { drivePull, drivePush, DriveDB } from './lib/driveSync';
 import React, { useEffect, useMemo, useState } from "react";
 
 /* =============================
@@ -9,6 +10,7 @@ const LS_KEYS = {
   productions: "maderna_productions_v1",
   orderSeq: "maderna_order_seq_v1",
   pin: "maderna_admin_pin_v1",
+  updatedAt: "maderna_updated_at_v1",
 };
 
 function currency(n?: number) {
@@ -30,6 +32,14 @@ function todayISO() {
 }
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+function getUpdatedAt(): string {
+  return localStorage.getItem(LS_KEYS.updatedAt) || "1970-01-01T00:00:00.000Z";
+}
+function setUpdatedNow(): string {
+  const now = new Date().toISOString();
+  localStorage.setItem(LS_KEYS.updatedAt, now);
+  return now;
 }
 
 /* =============================
@@ -116,6 +126,7 @@ function loadProducts(): Product[] {
 }
 function saveProducts(list: Product[]) {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
+  pushAllNow();
 }
 function loadOrders(): Order[] {
   try {
@@ -126,6 +137,7 @@ function loadOrders(): Order[] {
 }
 function saveOrders(list: Order[]) {
   localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
+   pushAllNow();
 }
 function loadProductions(): Production[] {
   try {
@@ -136,6 +148,7 @@ function loadProductions(): Production[] {
 }
 function saveProductions(list: Production[]) {
   localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
+   pushAllNow();
 }
 function loadSeq(): number {
   const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
@@ -143,12 +156,14 @@ function loadSeq(): number {
 }
 function saveSeq(n: number) {
   localStorage.setItem(LS_KEYS.orderSeq, String(n));
+   pushAllNow();
 }
 function loadPin(): string {
   return localStorage.getItem(LS_KEYS.pin) || "1234";
 }
 function savePin(pin: string) {
   localStorage.setItem(LS_KEYS.pin, pin);
+   pushAllNow();
 }
 
 /* =============================
@@ -314,6 +329,16 @@ export default function App() {
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
   useEffect(() => saveProductions(productions), [productions]);
+async function pushAllNow() {
+  await drivePush({
+    products: loadProducts(),
+    orders: loadOrders(),
+    productions: loadProductions(),
+    orderSeq: Number(localStorage.getItem(LS_KEYS.orderSeq) || "0"),
+    pin: localStorage.getItem(LS_KEYS.pin) || "1234",
+    updatedAt: setUpdatedNow(),
+  });
+}
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
