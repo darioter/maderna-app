@@ -1,5 +1,7 @@
 import { drivePull, drivePush, DriveDB } from './lib/driveSync';
 import React, { useEffect, useMemo, useState } from "react";
+import { wireAutoSync, pushDebounced, setUpdatedNow, getUpdatedAt, pullAll, pushAllNow } from './lib/sync';
+
 
 /* =============================
    Utilidades & Constantes
@@ -120,61 +122,63 @@ const seedProducts: Product[] = [
 /* =============================
    Persistencia
 ============================= */
+// =============================
+// Persistencia + hooks de sync
+// =============================
 function loadProducts(): Product[] {
   const raw = localStorage.getItem(LS_KEYS.products);
   if (raw) {
     try {
       const parsed: Product[] = JSON.parse(raw);
-      return parsed.map((p) => ({
-        ...p,
-        stockKg: p.stockKg ?? 0,
-        active: p.active ?? true,
-      }));
-    } catch { /* ignore */ }
+      return parsed.map(p => ({ ...p, stockKg: p.stockKg ?? 0, active: p.active ?? true }));
+    } catch {}
   }
-  localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
-  return seedProducts;
+  localStorage.setItem(LS_KEYS.products, JSON.stringify([]));
+  return [];
 }
 function saveProducts(list: Product[]) {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
-  pushAllNow();
+  setUpdatedNow();
+  pushDebounced();
 }
+
 function loadOrders(): Order[] {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEYS.orders) || "[]");
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(LS_KEYS.orders) || '[]'); }
+  catch { return []; }
 }
 function saveOrders(list: Order[]) {
   localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
-   pushAllNow();
+  setUpdatedNow();
+  pushDebounced();
 }
+
 function loadProductions(): Production[] {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEYS.productions) || "[]");
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(LS_KEYS.productions) || '[]'); }
+  catch { return []; }
 }
 function saveProductions(list: Production[]) {
   localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
-   pushAllNow();
+  setUpdatedNow();
+  pushDebounced();
 }
+
 function loadSeq(): number {
-  const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
+  const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || '0');
   return Number.isFinite(n) ? n : 0;
 }
 function saveSeq(n: number) {
   localStorage.setItem(LS_KEYS.orderSeq, String(n));
-   pushAllNow();
+  setUpdatedNow();
+  pushDebounced();
 }
+
 function loadPin(): string {
-  return localStorage.getItem(LS_KEYS.pin) || "1234";
+  return localStorage.getItem(LS_KEYS.pin) || '1234';
 }
 function savePin(pin: string) {
   localStorage.setItem(LS_KEYS.pin, pin);
-   pushAllNow();
+  setUpdatedNow();
+  pushDebounced();
 }
 
 /* =============================
@@ -350,6 +354,21 @@ async function pushAllNow() {
     updatedAt: setUpdatedNow(),
   });
 }
+// Sincronización inicial con Drive
+useEffect(() => {
+  wireAutoSync(); // arranca cron de pull cada 30s
+  (async () => {
+    const cloud = await pullAll();
+    // Si el remoto es más nuevo, recargo el estado local
+    if (cloud && cloud.updatedAt && cloud.updatedAt > (getUpdatedAt() || "")) {
+      setProducts(loadProducts());
+      setOrders(loadOrders());
+      setProductions(loadProductions());
+    }
+  })();
+  // Push inicial (asegura que exista copia remota)
+  pushAllNow().catch(() => {});
+}, []);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
