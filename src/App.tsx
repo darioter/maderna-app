@@ -12,6 +12,43 @@ const LS_KEYS = {
   pin: "maderna_admin_pin_v1",
   updatedAt: "maderna_updated_at_v1",
 };
+/* ======== SYNC SHIMS (no-op) ======== */
+/* Pegar esto debajo de LS_KEYS en App.tsx */
+
+function setUpdatedNow(): string {
+  const now = new Date().toISOString();
+  try {
+    localStorage.setItem(LS_KEYS.updatedAt, now);
+  } catch {}
+  return now;
+}
+
+function getUpdatedAt(): string {
+  try {
+    return localStorage.getItem(LS_KEYS.updatedAt) || "1970-01-01T00:00:00.000Z";
+  } catch {
+    return "1970-01-01T00:00:00.000Z";
+  }
+}
+
+function pushAllNow(): void {
+  // no-op por ahora (sin integración)
+  // cuando integres Drive/Supabase, reemplazar por la real
+}
+
+/** Llamá a pushDebounced() cada vez que guardes algo;
+ *  acumula cambios y empuja todo luego de 800ms sin actividad. */
+const pushDebounced = (() => {
+  let t: number | undefined;
+  return () => {
+    if (t) window.clearTimeout(t);
+    t = window.setTimeout(() => {
+      try {
+        pushAllNow();
+      } catch {}
+    }, 800);
+  };
+})();
 
 function currency(n?: number) {
   if (n == null || isNaN(n as number)) return "—";
