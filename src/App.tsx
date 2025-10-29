@@ -1,4 +1,4 @@
-
+import React, { useEffect, useMemo, useState } from "react";
 
 /* =============================
    Utilidades & Constantes
@@ -298,6 +298,16 @@ type AdminSalesManagerProps = {
   products: Product[];
   onDelete: (orderId: string) => void;
 };
+<AdminSalesManager
+  orders={orders}
+  products={products}
+  onDelete={(id) => {
+    // doble confirmación ya la maneja AdminSalesManager
+    deleteOrder(id);
+    alert("Venta eliminada y stock restaurado.");
+  }}
+/>
+
 const AdminSalesManager: React.FC<AdminSalesManagerProps> = ({ orders, products, onDelete }) => {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const today = todayISO();
@@ -499,6 +509,23 @@ useEffect(() => {
   function removeDraftLine(id: string) {
     setDraftLines((d) => d.filter((l) => l.id !== id));
   }
+function deleteOrder(orderId: string) {
+  const ord = orders.find((o) => o.id === orderId);
+  if (!ord) return;
+
+  // Restaurar stock por cada línea
+  for (const l of ord.lines) {
+    adjustStock(l.productId, l.qtyKg);
+  }
+
+  // Borrar orden
+  const next = orders.filter((o) => o.id !== orderId);
+  setOrders(next);
+  // si usás persistencia local:
+  try {
+    localStorage.setItem(LS_KEYS.orders, JSON.stringify(next));
+  } catch {}
+}
 
   const draftTotal = useMemo(() => {
     return draftLines.reduce((acc, l) => {
