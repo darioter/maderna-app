@@ -1,4 +1,4 @@
-import { wireAutoSync, pushDebounced, setUpdatedNow, getUpdatedAt, pullAll, pushAllNow } from './lib/sync';
+import React, { useEffect, useMemo, useState } from "react";
 
 
 /* =============================
@@ -300,7 +300,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
   useEffect(() => {
     // migración suave a nuevos campos
-    setOrders((prev) =>
+    setOrders((prev: Order[]) =>
       prev.map((o) => ({
         ...o,
         payment: o.payment ?? "efectivo",
@@ -364,11 +364,11 @@ useEffect(() => {
   }, [products, search, barcode]);
 
   function adjustStock(productId: string, deltaKg: number) {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p
-      )
-    );
+  setProducts((prev: Product[]) =>
+    prev.map((p) =>
+      p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p
+    )
+  );
   }
   function addProduction(productId: string, qtyKg: number, date: string) {
     const prod: Production = { id: uid(), productId, qtyKg, date };
@@ -395,17 +395,17 @@ useEffect(() => {
     setDeleteAskId(null);
   }
   function updateProduction(id: string, newQtyKg: number, newDate: string) {
-    setProductions((prev) => {
-      const pr = prev.find((x) => x.id === id);
-      if (!pr) return prev;
-      const delta = Number(newQtyKg) - Number(pr.qtyKg);
-      adjustStock(pr.productId, delta);
-      const next = prev.map((x) => (x.id === id ? { ...x, qtyKg: Number(newQtyKg), date: newDate } : x));
-      saveProductions(next);
-      return next;
-    });
-    setProdEditing(null);
-  }
+  setProductions((prev: Production[]) => {
+    const pr = prev.find((x) => x.id === id);
+    if (!pr) return prev;
+    const delta = Number(newQtyKg) - Number(pr.qtyKg);
+    adjustStock(pr.productId, delta);
+    const next = prev.map((x) => (x.id === id ? { ...x, qtyKg: Number(newQtyKg), date: newDate } : x));
+    saveProductions(next);
+    return next;
+  });
+  setProdEditing(null);
+}
 
   /* =============================
      Comanda / Ventas
@@ -421,12 +421,12 @@ useEffect(() => {
     }
   }
   function updateOrder(id: string, patch: Partial<Order>) {
-    setOrders((prev) => {
-      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
-      saveOrders(next);
-      return next;
-    });
-  }
+  setOrders((prev: Order[]) => {
+    const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
+    saveOrders(next);
+    return next;
+  });
+}
 
   type DraftLine = { id: string; productId: string; qtyKg: number };
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
@@ -767,7 +767,7 @@ useEffect(() => {
 
             <Section title="Historial de producción">
               <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                {productions.map((pr) => {
+                {productions.map((pr: Production) => {
                   const p = products.find((x) => x.id === pr.productId);
                   return (
                     <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl bg-gray-50 border">
@@ -933,7 +933,7 @@ useEffect(() => {
                   }
                 >
                   <div className="space-y-2">
-                    {products.map((p) => (
+                    {products.map((p: Product) => (
                       <div key={p.id} className="p-3 rounded-2xl border">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
