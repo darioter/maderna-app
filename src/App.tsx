@@ -41,6 +41,10 @@ function setUpdatedNow(): string {
   localStorage.setItem(LS_KEYS.updatedAt, now);
   return now;
 }
+// ---- Sync placeholders (no-op). Reemplazar por la implementación real cuando actives Drive.
+// Dejar estas 2 funciones si aún no creaste ./lib/sync.ts
+function pushAllNow(): void {}
+function setUpdatedNow(): void {}
 
 /* =============================
    Tipos
