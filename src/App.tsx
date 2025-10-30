@@ -9,6 +9,11 @@ import {
 } from "./lib/realtime";
 // ✅ así SÍ (porque tus archivos están directo en src/)
 import { pushSnapshotNow, pullSnapshotOnce, subscribeRealtime } from "./realtime";
+import { wireAutoSync, pullAll, drivePush, pushDebounced, type SyncResult } from './lib/sync'
+// si usás realtime:
+// import { initRealtime } from './realtime'
+// si usás firebase db:
+// import { db } from './firebase'
 
 
 
