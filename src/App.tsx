@@ -7,6 +7,7 @@ import {
   saveProductionsRemote,
   saveMetaRemote,
 } from "./lib/realtime";
+import { pushSnapshotNow, pullSnapshotOnce, subscribeRealtime } from "./lib/realtime";
 
 
 /* =============================
@@ -172,6 +173,14 @@ function loadPin(): string {
 function savePin(pin: string) {
   localStorage.setItem("maderna_admin_pin_v1", pin);
   saveMetaRemote({ pin }).catch(() => {});
+}
+// Debounce simple para no subir en cada tecla
+function debounce<T extends (...args: any[]) => void>(fn: T, ms = 800) {
+  let t: number | undefined;
+  return (...args: Parameters<T>) => {
+    if (t) window.clearTimeout(t);
+    t = window.setTimeout(() => fn(...args), ms);
+  };
 }
 
 /* =============================
@@ -355,6 +364,51 @@ useEffect(() => {
     setProductions,
   });
   return () => unsubscribe();
+}, []);
+const pushDebounced = useMemo(
+  () =>
+    debounce(() => {
+      pushSnapshotNow({
+        products,
+        orders,
+        productions,
+        orderSeq: Number(localStorage.getItem("maderna_order_seq_v1") || "0"),
+        pin: localStorage.getItem("maderna_admin_pin_v1") || "1234",
+      });
+    }, 800),
+  [products, orders, productions]
+);
+
+// Cuando cambia algo importante → subir (debounced)
+useEffect(() => { pushDebounced(); }, [products]);
+useEffect(() => { pushDebounced(); }, [orders]);
+useEffect(() => { pushDebounced(); }, [productions]);
+useEffect(() => {
+  let unsub: (() => void) | undefined;
+
+  (async () => {
+    // 1) primer pull (por si el doc ya existe)
+    const first = await pullSnapshotOnce();
+    if (first) {
+      setProducts(first.products || []);
+      setOrders(first.orders || []);
+      setProductions(first.productions || []);
+      if (first.orderSeq != null) localStorage.setItem("maderna_order_seq_v1", String(first.orderSeq));
+      if (first.pin) localStorage.setItem("maderna_admin_pin_v1", first.pin);
+    }
+
+    // 2) suscripción realtime
+    unsub = subscribeRealtime((data) => {
+      if (!data) return; // aún no existe el doc
+      setProducts((prev) => (JSON.stringify(prev) !== JSON.stringify(data.products) ? data.products : prev));
+      setOrders((prev) => (JSON.stringify(prev) !== JSON.stringify(data.orders) ? data.orders : prev));
+      setProductions((prev) => (JSON.stringify(prev) !== JSON.stringify(data.productions) ? data.productions : prev));
+      if (data.orderSeq != null) localStorage.setItem("maderna_order_seq_v1", String(data.orderSeq));
+      if (data.pin) localStorage.setItem("maderna_admin_pin_v1", data.pin);
+    });
+  })();
+
+  return () => { if (unsub) unsub(); };
 }, []);
 
   const filtered = useMemo(() => {
