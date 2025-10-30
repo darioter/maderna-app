@@ -1,53 +1,56 @@
-import React, { useEffect, useMemo, useState } from "react";
-// ⬇️ agrega esto arriba en App.tsx
+import React, { useEffect, useMemo, useState } from 'react'
+
+// 👇 Asegurate de tener estos imports (y no definir funciones con estos mismos nombres en App.tsx)
 import {
-  subscribeRealtime,
-  saveProductsRemote,
-  saveOrdersRemote,
-  saveProductionsRemote,
-  saveMetaRemote,
-} from "./lib/realtime";
-// ✅ así SÍ (porque tus archivos están directo en src/)
-import { pushSnapshotNow, pullSnapshotOnce, subscribeRealtime } from "./realtime";
-import { wireAutoSync, pullAll, drivePush, pushDebounced, type SyncResult } from './lib/sync'
-// si usás realtime:
-// import { initRealtime } from './realtime'
-// si usás firebase db:
-// import { db } from './firebase'
+  wireAutoSync,
+  pullAll,
+  drivePush,
+  pushDebounced,
+  type SyncResult,
+} from './lib/sync'
 
-
+// Si usás Firebase en este archivo:
+import { db } from './firebase' // OK si no se usa aún; también podés quitarlo
 
 /* =============================
    Utilidades & Constantes
 ============================= */
 const LS_KEYS = {
-  products: "maderna_products_v1",
-  orders: "maderna_orders_v1",
-  productions: "maderna_productions_v1",
-  orderSeq: "maderna_order_seq_v1",
-  pin: "maderna_admin_pin_v1",
-};
+  products: 'maderna_products_v1',
+  orders: 'maderna_orders_v1',
+  productions: 'maderna_productions_v1',
+  orderSeq: 'maderna_order_seq_v1',
+  pin: 'maderna_admin_pin_v1',
+  updatedAt: 'maderna_updated_at_v1',
+}
 
 function currency(n?: number) {
-  if (n == null || isNaN(n as number)) return "—";
+  if (n == null || isNaN(n as number)) return '—'
   try {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
       maximumFractionDigits: 0,
-    }).format(Number(n));
+    }).format(Number(n))
   } catch {
-    return `${n}`;
+    return `${n}`
   }
 }
+
 function todayISO() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split("T")[0];
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString().split('T')[0]
 }
+
 function uid() {
-  return Math.random().toString(36).slice(2, 10);
+  return Math.random().toString(36).slice(2, 10)
 }
+
+// ⚠️ IMPORTANTE: si en App.tsx tenías funciones con estos nombres, BORRALAS del archivo.
+//   - setUpdatedNow, getUpdatedAt, pushAllNow, drivePush, pullAll, wireAutoSync, pushDebounced
+//   Esas funciones ahora viven en ./lib/sync y se importan arriba.
+
 
 /* =============================
    Tipos
