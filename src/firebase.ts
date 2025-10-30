@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
+// ⬇️ Tus credenciales (las que compartiste)
 const firebaseConfig = {
   apiKey: "AIzaSyDezDfFOozeT8HR_Nslg1xihLFwT8SwCSs",
   authDomain: "maderna-app.firebaseapp.com",
@@ -11,5 +12,6 @@ const firebaseConfig = {
   appId: "1:816020564615:web:d5c0d3a84f2b8b55866622",
 };
 
-export const app = initializeApp(firebaseConfig);
+// Inicializa y exporta
+const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
