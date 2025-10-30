@@ -9,45 +9,7 @@ const LS_KEYS = {
   productions: "maderna_productions_v1",
   orderSeq: "maderna_order_seq_v1",
   pin: "maderna_admin_pin_v1",
-  updatedAt: "maderna_updated_at_v1",
 };
-/* ======== SYNC SHIMS (no-op) ======== */
-/* Pegar esto debajo de LS_KEYS en App.tsx */
-
-function setUpdatedNow(): string {
-  const now = new Date().toISOString();
-  try {
-    localStorage.setItem(LS_KEYS.updatedAt, now);
-  } catch {}
-  return now;
-}
-
-function getUpdatedAt(): string {
-  try {
-    return localStorage.getItem(LS_KEYS.updatedAt) || "1970-01-01T00:00:00.000Z";
-  } catch {
-    return "1970-01-01T00:00:00.000Z";
-  }
-}
-
-function pushAllNow(): void {
-  // no-op por ahora (sin integración)
-  // cuando integres Drive/Supabase, reemplazar por la real
-}
-
-/** Llamá a pushDebounced() cada vez que guardes algo;
- *  acumula cambios y empuja todo luego de 800ms sin actividad. */
-const pushDebounced = (() => {
-  let t: number | undefined;
-  return () => {
-    if (t) window.clearTimeout(t);
-    t = window.setTimeout(() => {
-      try {
-        pushAllNow();
-      } catch {}
-    }, 800);
-  };
-})();
 
 function currency(n?: number) {
   if (n == null || isNaN(n as number)) return "—";
@@ -67,36 +29,8 @@ function todayISO() {
   return d.toISOString().split("T")[0];
 }
 function uid() {
-  return Math.random().toString(36).slice(2, 10);   
+  return Math.random().toString(36).slice(2, 10);
 }
-/* ======== SYNC SHIMS extra (no-op) ======== */
-/* Agregar en App.tsx, debajo de las otras shims (setUpdatedNow, getUpdatedAt, pushAllNow, pushDebounced) */
-
-type SyncResult = { ok: boolean; message?: string };
-
-/** Simula un push manual (no hace nada real) */
-async function drivePush(): Promise<SyncResult> {
-  // marcamos timestamp local para que el UI pueda usarlo
-  setUpdatedNow();
-  // en una integración real acá subirías a Drive/Supabase
-  return { ok: true, message: "Simulado: push ok" };
-}
-
-/** Simula un pull (no descarga nada real) */
-async function pullAll(): Promise<SyncResult> {
-  // en una integración real bajarías los JSON y reemplazarías localStorage
-  return { ok: true, message: "Simulado: pull ok" };
-}
-
-/** Simula el auto-sync; devuelve una función de “unsubscribe” */
-function wireAutoSync(): () => void {
-  // en una integración real podrías suscribirte a cambios remotos o a 'storage' events
-  // acá no hacemos nada y devolvemos un no-op para que el useEffect pueda limpiarse
-  return () => {};
-}
-
-
-
 
 /* =============================
    Tipos
@@ -114,12 +48,14 @@ export type Product = {
   stockKg: number; // si es "unid", representa unidades
   active?: boolean;
 };
+
 export type OrderLine = {
   id: string;
   productId: string;
   qtyKg: number; // kg o unidades
   pricePerKgAtSale: number; // PVP congelado al momento de la venta
 };
+
 export type Order = {
   id: string;
   number: string;
@@ -130,6 +66,7 @@ export type Order = {
   payment?: "efectivo" | "mp";
   status?: "abierta" | "entregada";
 };
+
 export type Production = {
   id: string;
   productId: string;
@@ -163,65 +100,63 @@ const seedProducts: Product[] = [
 ];
 
 /* =============================
-   Persistencia
+   Persistencia (localStorage)
 ============================= */
-// =============================
-// Persistencia + hooks de sync
-// =============================
 function loadProducts(): Product[] {
   const raw = localStorage.getItem(LS_KEYS.products);
   if (raw) {
     try {
       const parsed: Product[] = JSON.parse(raw);
-      return parsed.map(p => ({ ...p, stockKg: p.stockKg ?? 0, active: p.active ?? true }));
+      // No duplicar claves: mantener existentes y completar faltantes
+      return parsed.map((p) => ({
+        ...p,
+        stockKg: p.stockKg ?? 0,
+        active: p.active ?? true,
+      }));
     } catch {}
   }
-  localStorage.setItem(LS_KEYS.products, JSON.stringify([]));
-  return [];
+  localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
+  return seedProducts;
 }
 function saveProducts(list: Product[]) {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
-  setUpdatedNow();
-  pushDebounced();
 }
 
 function loadOrders(): Order[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEYS.orders) || '[]'); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.orders) || "[]");
+  } catch {
+    return [];
+  }
 }
 function saveOrders(list: Order[]) {
   localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
-  setUpdatedNow();
-  pushDebounced();
 }
 
 function loadProductions(): Production[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEYS.productions) || '[]'); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.productions) || "[]");
+  } catch {
+    return [];
+  }
 }
 function saveProductions(list: Production[]) {
   localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
-  setUpdatedNow();
-  pushDebounced();
 }
 
 function loadSeq(): number {
-  const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || '0');
+  const n = Number(localStorage.getItem(LS_KEYS.orderSeq) || "0");
   return Number.isFinite(n) ? n : 0;
 }
 function saveSeq(n: number) {
   localStorage.setItem(LS_KEYS.orderSeq, String(n));
-  setUpdatedNow();
-  pushDebounced();
 }
 
 function loadPin(): string {
-  return localStorage.getItem(LS_KEYS.pin) || '1234';
+  return localStorage.getItem(LS_KEYS.pin) || "1234";
 }
 function savePin(pin: string) {
   localStorage.setItem(LS_KEYS.pin, pin);
-  setUpdatedNow();
-  pushDebounced();
 }
 
 /* =============================
@@ -248,19 +183,24 @@ const Pill: React.FC<{ text: string; className?: string }> = ({ text, className 
 /* =============================
    Subcomponentes
 ============================= */
-const ProductionForm: React.FC<{
+type ProductionFormProps = {
   products: Product[];
   onAdd: (productId: string, qtyKg: number, date: string) => void;
-}> = ({ products, onAdd }) => {
-  const [productId, setProductId] = useState(products[0]?.id || "");
-  const [qty, setQty] = useState(1);
-  const [date, setDate] = useState(todayISO());
+};
+function ProductionForm({ products, onAdd }: ProductionFormProps) {
+  const [productId, setProductId] = useState<string>(products[0]?.id || "");
+  const [qty, setQty] = useState<number>(1);
+  const [date, setDate] = useState<string>(todayISO());
   const prd = products.find((p) => p.id === productId);
   const isUnid = prd ? unitLabel(prd) === "unid" : false;
 
   return (
     <div className="grid gap-2">
-      <select className="px-3 py-2 rounded-xl border" value={productId} onChange={(e) => setProductId(e.target.value)}>
+      <select
+        className="px-3 py-2 rounded-xl border"
+        value={productId}
+        onChange={(e) => setProductId(e.target.value)}
+      >
         {products.filter((p) => p.active).map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
@@ -272,11 +212,16 @@ const ProductionForm: React.FC<{
           step={isUnid ? 1 : 0.1}
           className="flex-1 px-3 py-2 rounded-xl border"
           value={qty}
-          onChange={(e) => setQty(Number(e.target.value))}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQty(Number(e.target.value))}
         />
         <span className="text-sm text-gray-600">{prd ? unitLabel(prd) : "kg"}</span>
       </div>
-      <input type="date" className="px-3 py-2 rounded-xl border" value={date} onChange={(e) => setDate(e.target.value)} />
+      <input
+        type="date"
+        className="px-3 py-2 rounded-xl border"
+        value={date}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
+      />
       <button
         className="w-full mt-1 py-3 rounded-2xl bg-black text-white font-semibold"
         onClick={() => {
@@ -290,29 +235,22 @@ const ProductionForm: React.FC<{
       </button>
     </div>
   );
-};
+}
 
-// Admin: lista de ventas y permite eliminar (doble confirmación)
 type AdminSalesManagerProps = {
   orders: Order[];
   products: Product[];
   onDelete: (orderId: string) => void;
 };
-<AdminSalesManager
-  orders={orders}
-  products={products}
-  onDelete={(id) => {
-    // doble confirmación ya la maneja AdminSalesManager
-    deleteOrder(id);
-    alert("Venta eliminada y stock restaurado.");
-  }}
-/>
-
-const AdminSalesManager: React.FC<AdminSalesManagerProps> = ({ orders, products, onDelete }) => {
+function AdminSalesManager({ orders, products, onDelete }: AdminSalesManagerProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const today = todayISO();
+
   return (
-    <Section title="Ventas (eliminar por error)" right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0, 10) === today).length}`} />}>
+    <Section
+      title="Ventas (eliminar por error)"
+      right={<Pill text={`Hoy: ${orders.filter(o => o.createdAt.slice(0, 10) === today).length}`} />}
+    >
       <div className="space-y-2 max-h-72 overflow-auto pr-1">
         {orders.slice(0, 30).map((o) => (
           <div key={o.id} className="p-3 rounded-2xl border bg-white">
@@ -359,19 +297,20 @@ const AdminSalesManager: React.FC<AdminSalesManagerProps> = ({ orders, products,
       </div>
     </Section>
   );
-};
+}
 
 /* =============================
    App principal
 ============================= */
 export default function App() {
   const [tab, setTab] = useState<"inventario" | "comanda" | "produccion" | "reportes" | "admin">("inventario");
-
   const [products, setProducts] = useState<Product[]>(() => loadProducts());
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
+  const [productions, setProductions] = useState<Production[]>(() => loadProductions());
+
+  // migración suave de pedidos existentes a nuevo esquema
   useEffect(() => {
-    // migración suave a nuevos campos
-    setOrders((prev: Order[]) =>
+    setOrders((prev) =>
       prev.map((o) => ({
         ...o,
         payment: o.payment ?? "efectivo",
@@ -379,7 +318,6 @@ export default function App() {
       }))
     );
   }, []);
-  const [productions, setProductions] = useState<Production[]>(() => loadProductions());
 
   const [search, setSearch] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -388,40 +326,12 @@ export default function App() {
   const [barcode, setBarcode] = useState("");
   const [prodEditing, setProdEditing] = useState<Production | null>(null);
   const [deleteAskId, setDeleteAskId] = useState<string | null>(null);
-
-  // admin ventas (doble confirm)
   const [deleteOrderAskId, setDeleteOrderAskId] = useState<string | null>(null);
-
   const [editing, setEditing] = useState<Product | null>(null);
 
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
   useEffect(() => saveProductions(productions), [productions]);
-async function pushAllNow() {
-  await drivePush({
-    products: loadProducts(),
-    orders: loadOrders(),
-    productions: loadProductions(),
-    orderSeq: Number(localStorage.getItem(LS_KEYS.orderSeq) || "0"),
-    pin: localStorage.getItem(LS_KEYS.pin) || "1234",
-    updatedAt: setUpdatedNow(),
-  });
-}
-// Sincronización inicial con Drive
-useEffect(() => {
-  wireAutoSync(); // arranca cron de pull cada 30s
-  (async () => {
-    const cloud = await pullAll();
-    // Si el remoto es más nuevo, recargo el estado local
-    if (cloud && cloud.updatedAt && cloud.updatedAt > (getUpdatedAt() || "")) {
-      setProducts(loadProducts());
-      setOrders(loadOrders());
-      setProductions(loadProductions());
-    }
-  })();
-  // Push inicial (asegura que exista copia remota)
-  pushAllNow().catch(() => {});
-}, []);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -435,17 +345,19 @@ useEffect(() => {
   }, [products, search, barcode]);
 
   function adjustStock(productId: string, deltaKg: number) {
-  setProducts((prev: Product[]) =>
-    prev.map((p) =>
-      p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p
-    )
-  );
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId ? { ...p, stockKg: Math.max(0, Number(p.stockKg || 0) + deltaKg) } : p
+      )
+    );
   }
+
   function addProduction(productId: string, qtyKg: number, date: string) {
     const prod: Production = { id: uid(), productId, qtyKg, date };
     setProductions((prev) => [prod, ...prev]);
     adjustStock(productId, qtyKg);
   }
+
   function deleteProduction(id: string) {
     const pr = productions.find((x) => x.id === id);
     if (!pr) return;
@@ -454,6 +366,7 @@ useEffect(() => {
     setProductions(next);
     saveProductions(next);
   }
+
   function handleDeleteClick(id: string) {
     if (deleteAskId !== id) {
       setDeleteAskId(id);
@@ -465,22 +378,23 @@ useEffect(() => {
     deleteProduction(id);
     setDeleteAskId(null);
   }
-  function updateProduction(id: string, newQtyKg: number, newDate: string) {
-  setProductions((prev: Production[]) => {
-    const pr = prev.find((x) => x.id === id);
-    if (!pr) return prev;
-    const delta = Number(newQtyKg) - Number(pr.qtyKg);
-    adjustStock(pr.productId, delta);
-    const next = prev.map((x) => (x.id === id ? { ...x, qtyKg: Number(newQtyKg), date: newDate } : x));
-    saveProductions(next);
-    return next;
-  });
-  setProdEditing(null);
-}
 
-  /* =============================
-     Comanda / Ventas
-  ============================= */
+  function updateProduction(id: string, newQtyKg: number, newDate: string) {
+    setProductions((prev) => {
+      const pr = prev.find((x) => x.id === id);
+      if (!pr) return prev;
+      const delta = Number(newQtyKg) - Number(pr.qtyKg);
+      adjustStock(pr.productId, delta);
+      const next = prev.map((x) => (x.id === id ? { ...x, qtyKg: Number(newQtyKg), date: newDate } : x));
+      saveProductions(next);
+      return next;
+    });
+    setProdEditing(null);
+  }
+
+  // =============================
+  // Comanda / Ventas
+  // =============================
   function tryLogin(pin: string) {
     const saved = loadPin();
     if (pin === saved) {
@@ -491,13 +405,14 @@ useEffect(() => {
       alert("PIN incorrecto");
     }
   }
+
   function updateOrder(id: string, patch: Partial<Order>) {
-  setOrders((prev: Order[]) => {
-    const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
-    saveOrders(next);
-    return next;
-  });
-}
+    setOrders((prev) => {
+      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
+      saveOrders(next);
+      return next;
+    });
+  }
 
   type DraftLine = { id: string; productId: string; qtyKg: number };
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
@@ -509,29 +424,12 @@ useEffect(() => {
   function removeDraftLine(id: string) {
     setDraftLines((d) => d.filter((l) => l.id !== id));
   }
-function deleteOrder(orderId: string) {
-  const ord = orders.find((o) => o.id === orderId);
-  if (!ord) return;
-
-  // Restaurar stock por cada línea
-  for (const l of ord.lines) {
-    adjustStock(l.productId, l.qtyKg);
-  }
-
-  // Borrar orden
-  const next = orders.filter((o) => o.id !== orderId);
-  setOrders(next);
-  // si usás persistencia local:
-  try {
-    localStorage.setItem(LS_KEYS.orders, JSON.stringify(next));
-  } catch {}
-}
 
   const draftTotal = useMemo(() => {
     return draftLines.reduce((acc, l) => {
       const p = products.find((x) => x.id === l.productId);
       if (!p) return acc;
-      const price = Number((p.priceStore ?? p.pricePerKg) || 0);
+      const price = Number((p.priceStore ?? p.pricePerKg) || 0); // usar PVP tienda si existe
       return acc + l.qtyKg * price;
     }, 0);
   }, [draftLines, products]);
@@ -547,7 +445,9 @@ function deleteOrder(orderId: string) {
     }
     const seq = loadSeq() + 1;
     saveSeq(seq);
-    const compactDate = new Date().toISOString().slice(0, 10).split("-").join("");
+
+    const date = new Date();
+    const compactDate = date.toISOString().slice(0, 10).split("-").join("");
     const number = `M-${compactDate}-${String(seq).padStart(4, "0")}`;
 
     const lines: OrderLine[] = draftLines.map((l) => {
@@ -577,19 +477,23 @@ function deleteOrder(orderId: string) {
     alert(`Comanda ${number} generada. Total: ${currency(total)}`);
   }
 
-  // eliminar venta (admin) con restauración de stock
+  // Eliminar una comanda (Admin): restaura stock + borra la venta
   function deleteOrder(orderId: string) {
     const ord = orders.find((o) => o.id === orderId);
     if (!ord) return;
-    for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
+    // Restaurar stock de todas las líneas
+    for (const l of ord.lines) {
+      adjustStock(l.productId, l.qtyKg);
+    }
+    // Quitar la orden
     const next = orders.filter((o) => o.id !== orderId);
     setOrders(next);
     saveOrders(next);
   }
 
-  /* =============================
-     Reportes
-  ============================= */
+  // =============================
+  // Reportes
+  // =============================
   const today = todayISO();
   const [reportDate, setReportDate] = useState<string>(today);
   const [showOlderPendings, setShowOlderPendings] = useState<boolean>(true);
@@ -611,7 +515,9 @@ function deleteOrder(orderId: string) {
     [orders, reportDate]
   );
 
-  // guardar/editar producto
+  // =============================
+  // Guardar/editar productos
+  // =============================
   function saveProduct(p: Product) {
     setProducts((prev) => {
       const exists = prev.some((x) => x.id === p.id);
@@ -622,9 +528,9 @@ function deleteOrder(orderId: string) {
     setEditing(null);
   }
 
-  /* =============================
-     Render
-  ============================= */
+  // =============================
+  // Render
+  // =============================
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
       {/* Header */}
@@ -655,13 +561,13 @@ function deleteOrder(orderId: string) {
                   className="flex-1 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring w-full"
                   placeholder="Buscar por nombre, código o categoría"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
                 />
                 <input
                   className="w-36 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring"
                   placeholder="Barras"
                   value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBarcode(e.target.value)}
                 />
               </div>
 
@@ -745,17 +651,23 @@ function deleteOrder(orderId: string) {
                       <select
                         className="flex-1 px-2 py-2 rounded-lg border"
                         value={l.productId}
-                        onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x)))}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                          setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, productId: e.target.value } : x)))
+                        }
                       >
-                        {products.filter((x) => x.active).map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                        {products.filter((x) => x.active).map((p2) => (
+                          <option key={p2.id} value={p2.id}>
+                            {p2.name}
+                          </option>
                         ))}
                       </select>
                       <input
                         type="number"
-                        className="w-20 shrink-0 px-2 py-2 rounded-lg border text-right"
+                        className="w-24 px-2 py-2 rounded-lg border text-right"
                         value={l.qtyKg}
-                        onChange={(e) => setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x)))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setDraftLines((ds) => ds.map((x) => (x.id === l.id ? { ...x, qtyKg: Number(e.target.value) } : x)))
+                        }
                         min={isUnid ? 1 : 0.1}
                         step={isUnid ? 1 : 0.1}
                       />
@@ -790,12 +702,13 @@ function deleteOrder(orderId: string) {
                     </div>
                     <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleString()}</div>
 
+                    {/* tracking */}
                     <div className="mt-2 grid gap-2">
                       <input
                         className="px-2 py-2 rounded-lg border text-sm"
                         placeholder="Cliente o vendedor"
                         value={o.partyName || ""}
-                        onChange={(e) => updateOrder(o.id, { partyName: e.target.value })}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateOrder(o.id, { partyName: e.target.value })}
                         disabled={o.status === "entregada"}
                       />
                       <div className="flex items-center justify-between gap-2">
@@ -820,7 +733,9 @@ function deleteOrder(orderId: string) {
                           <input
                             type="checkbox"
                             checked={o.status === "entregada"}
-                            onChange={(e) => updateOrder(o.id, { status: e.target.checked ? "entregada" : "abierta" })}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              updateOrder(o.id, { status: e.target.checked ? "entregada" : "abierta" })
+                            }
                           />
                           Entregado
                         </label>
@@ -832,7 +747,9 @@ function deleteOrder(orderId: string) {
                         const p = products.find((x) => x.id === l.productId);
                         return (
                           <div key={l.id} className="flex justify-between">
-                            <span>{p?.name} × {l.qtyKg} {p ? unitLabel(p) : "kg"}</span>
+                            <span>
+                              {p?.name} × {l.qtyKg} {p ? unitLabel(p) : "kg"}
+                            </span>
                             <span>{currency(l.qtyKg * l.pricePerKgAtSale)}</span>
                           </div>
                         );
@@ -855,7 +772,7 @@ function deleteOrder(orderId: string) {
 
             <Section title="Historial de producción">
               <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                {productions.map((pr: Production) => {
+                {productions.map((pr) => {
                   const p = products.find((x) => x.id === pr.productId);
                   return (
                     <div key={pr.id} className="flex items-center justify-between p-2 rounded-xl bg-gray-50 border">
@@ -906,9 +823,18 @@ function deleteOrder(orderId: string) {
                 </div>
                 <div className="p-3 bg-white rounded-2xl border">
                   <div className="text-xs text-gray-500">Fecha</div>
-                  <input type="date" className="mt-1 w-full px-3 py-2 rounded-xl border" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+                  <input
+                    type="date"
+                    className="mt-1 w-full px-3 py-2 rounded-xl border"
+                    value={reportDate}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReportDate(e.target.value)}
+                  />
                   <label className="mt-2 text-xs flex items-center gap-2">
-                    <input type="checkbox" checked={showOlderPendings} onChange={(e) => setShowOlderPendings(e.target.checked)} /> Incluir pendientes de días anteriores
+                    <input
+                      type="checkbox"
+                      checked={showOlderPendings}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowOlderPendings(e.target.checked)}
+                    /> Incluir pendientes de días anteriores
                   </label>
                 </div>
               </div>
@@ -959,7 +885,7 @@ function deleteOrder(orderId: string) {
                     className="w-full px-3 py-2 rounded-xl border"
                     placeholder="PIN"
                     value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPinInput(e.target.value)}
                     type="password"
                     inputMode="numeric"
                   />
@@ -995,6 +921,23 @@ function deleteOrder(orderId: string) {
                   </div>
                 </Section>
 
+                {/* Ventas (eliminar por error) */}
+                <AdminSalesManager
+                  orders={orders}
+                  products={products}
+                  onDelete={(id) => {
+                    if (deleteOrderAskId !== id) {
+                      setDeleteOrderAskId(id);
+                      window.setTimeout(() => setDeleteOrderAskId((c) => (c === id ? null : c)), 3500);
+                      return;
+                    }
+                    deleteOrder(id);
+                    setDeleteOrderAskId(null);
+                    alert("Venta eliminada y stock restaurado.");
+                  }}
+                />
+
+                {/* Productos */}
                 <Section
                   title="Productos (activar/editar)"
                   right={
@@ -1021,7 +964,7 @@ function deleteOrder(orderId: string) {
                   }
                 >
                   <div className="space-y-2">
-                    {products.map((p: Product) => (
+                    {products.map((p) => (
                       <div key={p.id} className="p-3 rounded-2xl border">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: p.hex }} />
@@ -1053,7 +996,12 @@ function deleteOrder(orderId: string) {
 
                 <Section title="Seguridad">
                   <div className="flex items-center gap-2">
-                    <input className="flex-1 px-3 py-2 rounded-xl border" placeholder="Nuevo PIN" onChange={(e) => setPinInput(e.target.value)} />
+                    <input
+                      className="flex-1 px-3 py-2 rounded-xl border"
+                      placeholder="Nuevo PIN"
+                      value={pinInput}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPinInput(e.target.value)}
+                    />
                     <button
                       className="px-3 py-2 rounded-xl bg-gray-100"
                       onClick={() => {
@@ -1068,20 +1016,6 @@ function deleteOrder(orderId: string) {
                   </div>
                 </Section>
 
-                <AdminSalesManager
-                  orders={orders}
-                  products={products}
-                  onDelete={(orderId) => {
-                    const ord = orders.find((o) => o.id === orderId);
-                    if (!ord) return;
-                    for (const l of ord.lines) adjustStock(l.productId, l.qtyKg);
-                    const next = orders.filter((o) => o.id !== orderId);
-                    setOrders(next);
-                    saveOrders(next);
-                  }}
-                />
-
-                {/* Modal editar producto */}
                 {editing && (
                   <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4">
                     <div className="bg-white rounded-2xl p-4 w-full max-w-md">
@@ -1090,22 +1024,84 @@ function deleteOrder(orderId: string) {
                         <button className="text-sm" onClick={() => setEditing(null)}>✕</button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input className="col-span-2 px-3 py-2 rounded-xl border" placeholder="Nombre" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="Código" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="Categoría" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="Barras" value={editing.barcode || ""} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
-                        <input className="px-3 py-2 rounded-xl border" placeholder="#HEX" value={editing.hex} onChange={(e) => setEditing({ ...editing, hex: e.target.value })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Costo/${unitLabel(editing as Product)}`} value={editing.costPerKg ?? 0} onChange={(e) => setEditing({ ...editing, costPerKg: Number(e.target.value) })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`PV receta/${unitLabel(editing as Product)}`} value={editing.pricePerKg ?? 0} onChange={(e) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder="PVP tienda" value={editing.priceStore ?? 0} onChange={(e) => setEditing({ ...editing, priceStore: Number(e.target.value) })} />
-                        <input type="number" step="0.01" className="px-3 py-2 rounded-xl border" placeholder={`Stock ${unitLabel(editing as Product)}`} value={editing.stockKg} onChange={(e) => setEditing({ ...editing, stockKg: Number(e.target.value) })} />
+                        <input
+                          className="col-span-2 px-3 py-2 rounded-xl border"
+                          placeholder="Nombre"
+                          value={editing.name}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, name: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="Código"
+                          value={editing.code}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, code: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="Categoría"
+                          value={editing.category}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, category: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="Barras"
+                          value={editing.barcode || ""}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, barcode: e.target.value })}
+                        />
+                        <input
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="#HEX"
+                          value={editing.hex}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, hex: e.target.value })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder={`Costo/${unitLabel(editing as Product)}`}
+                          value={editing.costPerKg ?? 0}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, costPerKg: Number(e.target.value) })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder={`PV receta/${unitLabel(editing as Product)}`}
+                          value={editing.pricePerKg ?? 0}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, pricePerKg: Number(e.target.value) })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder="PVP tienda"
+                          value={editing.priceStore ?? 0}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, priceStore: Number(e.target.value) })}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="px-3 py-2 rounded-xl border"
+                          placeholder={`Stock ${unitLabel(editing as Product)}`}
+                          value={editing.stockKg}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, stockKg: Number(e.target.value) })}
+                        />
                         <div className="col-span-2 flex items-center justify-between mt-2">
                           <label className="text-sm flex items-center gap-2">
-                            <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> Activo
+                            <input
+                              type="checkbox"
+                              checked={!!editing.active}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditing({ ...editing, active: e.target.checked })}
+                            />{" "}
+                            Activo
                           </label>
                           <div className="grid grid-cols-2 gap-2">
-                            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>Cancelar</button>
-                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing!)}>Guardar</button>
+                            <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setEditing(null)}>
+                              Cancelar
+                            </button>
+                            <button className="px-3 py-2 rounded-xl bg-emerald-600 text-white" onClick={() => saveProduct(editing)}>
+                              Guardar
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1118,7 +1114,7 @@ function deleteOrder(orderId: string) {
         )}
       </main>
 
-      {/* Modal editar producción */}
+      {/* Modal editar producción (overlay) */}
       {prodEditing && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4 z-20">
           <div className="bg-white rounded-2xl p-4 w-full max-w-md">
@@ -1131,13 +1127,30 @@ function deleteOrder(orderId: string) {
                 {products.find((p) => p.id === prodEditing.productId)?.name}
               </div>
               <label className="text-xs">
-                Cantidad ({(() => { const prd = products.find((p) => p.id === prodEditing.productId); return prd ? unitLabel(prd) : "kg"; })()})
+                Cantidad ({(() => {
+                  const prd = products.find((p) => p.id === prodEditing.productId);
+                  return prd ? unitLabel(prd) : "kg";
+                })()})
               </label>
-              <input type="number" min={0.1} step={0.1} className="px-3 py-2 rounded-xl border" defaultValue={prodEditing.qtyKg} id="editQtyKg" />
+              <input
+                type="number"
+                min={0.1}
+                step={0.1}
+                className="px-3 py-2 rounded-xl border"
+                defaultValue={prodEditing.qtyKg}
+                id="editQtyKg"
+              />
               <label className="text-xs">Fecha</label>
-              <input type="date" className="px-3 py-2 rounded-xl border" defaultValue={prodEditing.date} id="editDate" />
+              <input
+                type="date"
+                className="px-3 py-2 rounded-xl border"
+                defaultValue={prodEditing.date}
+                id="editDate"
+              />
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setProdEditing(null)}>Cancelar</button>
+                <button className="px-3 py-2 rounded-xl bg-gray-100" onClick={() => setProdEditing(null)}>
+                  Cancelar
+                </button>
                 <button
                   className="px-3 py-2 rounded-xl bg-emerald-600 text-white"
                   onClick={() => {
@@ -1181,10 +1194,11 @@ function deleteOrder(orderId: string) {
   );
 }
 
-/* =============================
-   Tests (sanity)
-============================= */
+// =============================
+// Tests (sanity checks)
+// =============================
 if (typeof window !== "undefined") {
   const TABS = ["inventario", "comanda", "produccion", "reportes", "admin"];
+  // @ts-ignore: solo check básico en runtime
   console.assert(TABS.length === 5, "Debe haber 5 tabs");
 }
