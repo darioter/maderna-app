@@ -7,7 +7,9 @@ import {
   saveProductionsRemote,
   saveMetaRemote,
 } from "./lib/realtime";
-import { pushSnapshotNow, pullSnapshotOnce, subscribeRealtime } from "./lib/realtime";
+// ✅ así SÍ (porque tus archivos están directo en src/)
+import { pushSnapshotNow, pullSnapshotOnce, subscribeRealtime } from "./realtime";
+
 
 
 /* =============================
