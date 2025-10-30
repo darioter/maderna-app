@@ -1,4 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+// ⬇️ agrega esto arriba en App.tsx
+import {
+  subscribeRealtime,
+  saveProductsRemote,
+  saveOrdersRemote,
+  saveProductionsRemote,
+  saveMetaRemote,
+} from "./lib/realtime";
+
 
 /* =============================
    Utilidades & Constantes
@@ -119,7 +128,9 @@ function loadProducts(): Product[] {
   return seedProducts;
 }
 function saveProducts(list: Product[]) {
-  localStorage.setItem(LS_KEYS.products, JSON.stringify(list));
+  localStorage.setItem("maderna_products_v1", JSON.stringify(list));
+  // push remoto (no bloquea UI)
+  saveProductsRemote(list).catch(() => {});
 }
 
 function loadOrders(): Order[] {
@@ -130,7 +141,8 @@ function loadOrders(): Order[] {
   }
 }
 function saveOrders(list: Order[]) {
-  localStorage.setItem(LS_KEYS.orders, JSON.stringify(list));
+  localStorage.setItem("maderna_orders_v1", JSON.stringify(list));
+  saveOrdersRemote(list).catch(() => {});
 }
 
 function loadProductions(): Production[] {
@@ -141,7 +153,8 @@ function loadProductions(): Production[] {
   }
 }
 function saveProductions(list: Production[]) {
-  localStorage.setItem(LS_KEYS.productions, JSON.stringify(list));
+  localStorage.setItem("maderna_productions_v1", JSON.stringify(list));
+  saveProductionsRemote(list).catch(() => {});
 }
 
 function loadSeq(): number {
@@ -149,14 +162,16 @@ function loadSeq(): number {
   return Number.isFinite(n) ? n : 0;
 }
 function saveSeq(n: number) {
-  localStorage.setItem(LS_KEYS.orderSeq, String(n));
+  localStorage.setItem("maderna_order_seq_v1", String(n));
+  saveMetaRemote({ orderSeq: n }).catch(() => {});
 }
 
 function loadPin(): string {
   return localStorage.getItem(LS_KEYS.pin) || "1234";
 }
 function savePin(pin: string) {
-  localStorage.setItem(LS_KEYS.pin, pin);
+  localStorage.setItem("maderna_admin_pin_v1", pin);
+  saveMetaRemote({ pin }).catch(() => {});
 }
 
 /* =============================
@@ -332,6 +347,15 @@ export default function App() {
   useEffect(() => saveProducts(products), [products]);
   useEffect(() => saveOrders(orders), [orders]);
   useEffect(() => saveProductions(productions), [productions]);
+// ⬇️ justo después de declarar los states de products, orders y productions
+useEffect(() => {
+  const unsubscribe = subscribeRealtime({
+    setProducts,
+    setOrders,
+    setProductions,
+  });
+  return () => unsubscribe();
+}, []);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
