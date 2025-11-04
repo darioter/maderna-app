@@ -145,10 +145,13 @@ function loadProducts(): Product[] {
   localStorage.setItem(LS_KEYS.products, JSON.stringify(seedProducts));
   return seedProducts;
 }
-function saveProducts(list: Product[]) {
-  localStorage.setItem("maderna_products_v1", JSON.stringify(list));
-  // push remoto (no bloquea UI)
-  saveProductsRemote(list).catch(() => {});
+function saveProductsLocal(rows: Product[]) {
+  localStorage.setItem("maderna_products_v1", JSON.stringify(rows));
+}
+
+async function persistProducts(rows: Product[]) {
+  saveProductsLocal(rows);
+  try { await saveProductsRemote(rows); } catch (e) { console.error("remote products:", e); }
 }
 
 function loadOrders(): Order[] {
@@ -158,9 +161,20 @@ function loadOrders(): Order[] {
     return [];
   }
 }
-function saveOrders(list: Order[]) {
-  localStorage.setItem("maderna_orders_v1", JSON.stringify(list));
-  saveOrdersRemote(list).catch(() => {});
+function saveOrdersLocal(rows: Order[]) {
+  localStorage.setItem("maderna_orders_v1", JSON.stringify(rows));
+}
+async function persistOrders(rows: Order[]) {
+  saveOrdersLocal(rows);
+  try { await saveOrdersRemote(rows); } catch (e) { console.error("remote orders:", e); }
+}
+
+function saveProductionsLocal(rows: Production[]) {
+  localStorage.setItem("maderna_productions_v1", JSON.stringify(rows));
+}
+async function persistProductions(rows: Production[]) {
+  saveProductionsLocal(rows);
+  try { await saveProductionsRemote(rows); } catch (e) { console.error("remote prod:", e); }
 }
 
 function loadProductions(): Production[] {
