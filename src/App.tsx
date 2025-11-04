@@ -365,14 +365,20 @@ export default function App() {
 
   // migración suave de pedidos existentes a nuevo esquema
   useEffect(() => {
-    setOrders((prev) =>
-      prev.map((o) => ({
-        ...o,
-        payment: o.payment ?? "efectivo",
-        status: o.status ?? "abierta",
-      }))
-    );
-  }, []);
+  (async () => {
+    try {
+      const remote = await pullAllRemote();
+      if (remote) {
+        setProducts(remote.products);
+        setOrders(remote.orders);
+        setProductions(remote.productions);
+      }
+    } catch (e) {
+      console.error("pullAllRemote falló, sigo con local:", e);
+    }
+  })();
+}, []);
+
 
   const [search, setSearch] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
