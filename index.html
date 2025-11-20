@@ -1269,9 +1269,7 @@
               <div className="rounded-2xl border border-sky-700/40 bg-sky-900/20 px-3 py-2">
                 <p className="text-[11px] text-sky-200">Mercado Pago</p>
                 <p className="text-xl font-bold text-sky-50">
-                  {resumen.totalMP
-                    ? `ARS ${resumen.totalMP.toFixed(0)}`
-                    : "-"}
+                  {resumen.totalMP ? `ARS ${resumen.totalMP.toFixed(0)}` : "-"}
                 </p>
               </div>
               <div className="rounded-2xl border border-zinc-700/40 bg-zinc-900/20 px-3 py-2">
@@ -1385,7 +1383,7 @@
         setProducciones,
       }) {
         const [passwordInput, setPasswordInput] = useState("");
-        the: const [desbloqueado, setDesbloqueado] = useState(false);
+        const [desbloqueado, setDesbloqueado] = useState(false); // <-- corregido
         const PASSWORD_REAL = "maderna2025"; // cambiable
 
         const intentarDesbloquear = () => {
@@ -1477,7 +1475,9 @@
                   Desbloquear editor
                 </button>
                 <p className="text-[11px] text-zinc-500 mt-2">
-                  Contraseña demo: <span className="font-mono">maderna2025</span> (podés cambiarla en el código).
+                  Contraseña demo:{" "}
+                  <span className="font-mono">maderna2025</span> (podés
+                  cambiarla en el código).
                 </p>
               </div>
             </section>
@@ -1574,7 +1574,7 @@
                         </div>
                         <div>
                           <label className="block text-[10px] text-zinc-400 mb-0.5">
-                            Color
+                            Color visual
                           </label>
                           <input
                             type="color"
