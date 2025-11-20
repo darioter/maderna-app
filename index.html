@@ -2,11 +2,325 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
     <title>La Esquina de Maderna</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fuente opcional -->
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+    </style>
   </head>
-  <body class="bg-zinc-50 text-zinc-900">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <body class="bg-zinc-950 text-zinc-100 min-h-screen">
+    <div id="root" class="min-h-screen"></div>
+
+    <!-- React 18 UMD -->
+    <script
+      src="https://unpkg.com/react@18/umd/react.development.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+      crossorigin
+    ></script>
+
+    <!-- Babel para poder usar JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Tu app -->
+    <script type="text/babel">
+      const { useState } = React;
+
+      const PRODUCTOS_INICIALES = [
+        {
+          id: 1,
+          nombre: "Milanesa de pollo",
+          categoria: "Pollo",
+          porcionesPorKg: 8,
+        },
+        {
+          id: 2,
+          nombre: "Milanesa de carne",
+          categoria: "Carne",
+          porcionesPorKg: 8,
+        },
+        {
+          id: 3,
+          nombre: "Pechuguitas rebozadas",
+          categoria: "Pollo",
+          porcionesPorKg: 10,
+        },
+        {
+          id: 4,
+          nombre: "Caritas de papa",
+          categoria: "Papas",
+          porcionesPorKg: 12,
+        },
+        {
+          id: 5,
+          nombre: "Bastones de muzzarella",
+          categoria: "Snacks",
+          porcionesPorKg: 14,
+        },
+        {
+          id: 6,
+          nombre: "Papas noisette",
+          categoria: "Papas",
+          porcionesPorKg: 12,
+        },
+        {
+          id: 7,
+          nombre: "Ribs estilo Kansas",
+          categoria: "Ribs",
+          porcionesPorKg: 4,
+        },
+      ];
+
+      function calcularPrecios(costoKg, margen) {
+        if (!costoKg || costoKg <= 0) return { precioKg: 0, precioPorcion: 0 };
+        const factor = 1 / (1 - margen / 100); // ej: 60% -> 1 / 0.4 = 2.5
+        const precioKg = costoKg * factor;
+        return { precioKg };
+      }
+
+      function Header() {
+        return (
+          <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-10">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-zinc-900 font-black text-xl">
+                  M
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold tracking-tight">
+                    La Esquina de Maderna
+                  </h1>
+                  <p className="text-xs text-zinc-400">
+                    Calculadora rápida de costos y precios de venta
+                  </p>
+                </div>
+              </div>
+              <div className="hidden sm:flex flex-col items-end text-xs text-zinc-400">
+                <span>Método Fermento · Tool interno</span>
+                <span>Versión estática · GitHub Pages</span>
+              </div>
+            </div>
+          </header>
+        );
+      }
+
+      function Filtros({ filtroTexto, setFiltroTexto, margenGlobal, setMargenGlobal }) {
+        return (
+          <section className="mb-6 flex flex-col sm:flex-row gap-4 sm:items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-zinc-400 mb-1">
+                Buscar producto
+              </label>
+              <input
+                type="text"
+                value={filtroTexto}
+                onChange={e => setFiltroTexto(e.target.value)}
+                placeholder="Ej: milanesa, ribs, caritas..."
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+              />
+            </div>
+            <div className="w-full sm:w-56">
+              <label className="block text-xs font-medium text-zinc-400 mb-1">
+                Margen deseado (% sobre costo)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={margenGlobal}
+                  onChange={e =>
+                    setMargenGlobal(
+                      Math.min(90, Math.max(10, Number(e.target.value) || 0)),
+                    )
+                  }
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                />
+                <span className="text-sm text-zinc-400">% margen</span>
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Tip: 60% es un buen objetivo de utilidad neta para congelados.
+              </p>
+            </div>
+          </section>
+        );
+      }
+
+      function ProductoRow({ producto, margenGlobal }) {
+        const [costoKg, setCostoKg] = useState("");
+        const [porcionesPorKg, setPorcionesPorKg] = useState(
+          producto.porcionesPorKg,
+        );
+
+        const { precioKg } = calcularPrecios(Number(costoKg), margenGlobal);
+        const precioPorcion =
+          precioKg && porcionesPorKg > 0
+            ? precioKg / Number(porcionesPorKg)
+            : 0;
+
+        return (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 sm:p-4 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold tracking-tight">
+                  {producto.nombre}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  {producto.categoria} · rendimiento aprox.{" "}
+                  {porcionesPorKg} por kg
+                </p>
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
+                #{producto.id}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block text-[11px] text-zinc-400 mb-1">
+                  Costo por kg (ARS)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={costoKg}
+                  onChange={e => setCostoKg(e.target.value)}
+                  placeholder="Ej: 4500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-zinc-400 mb-1">
+                  Porciones x kg
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={porcionesPorKg}
+                  onChange={e =>
+                    setPorcionesPorKg(Number(e.target.value) || 1)
+                  }
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                />
+              </div>
+
+              <div className="rounded-xl bg-zinc-950/70 border border-zinc-800 px-3 py-2 flex flex-col justify-center">
+                <span className="text-[11px] text-zinc-400">
+                  Margen aplicado
+                </span>
+                <span className="text-sm font-medium">
+                  {margenGlobal}% sobre costo
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="rounded-xl bg-emerald-900/20 border border-emerald-700/40 px-3 py-2">
+                <p className="text-[11px] text-emerald-300">
+                  Precio sugerido por kg
+                </p>
+                <p className="text-lg font-semibold text-emerald-200">
+                  {precioKg ? `ARS ${precioKg.toFixed(0)}` : "-"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-amber-900/20 border border-amber-700/40 px-3 py-2">
+                <p className="text-[11px] text-amber-300">
+                  Precio sugerido por porción
+                </p>
+                <p className="text-lg font-semibold text-amber-200">
+                  {precioPorcion ? `ARS ${precioPorcion.toFixed(0)}` : "-"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-zinc-950/70 border border-zinc-800 px-3 py-2">
+                <p className="text-[11px] text-zinc-400">
+                  Nota rápida
+                </p>
+                <p className="text-[11px] text-zinc-300">
+                  Ajustá margen y porciones según rendimiento real de cada
+                  producto.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function App() {
+        const [filtroTexto, setFiltroTexto] = useState("");
+        const [margenGlobal, setMargenGlobal] = useState(60);
+
+        const productosFiltrados = PRODUCTOS_INICIALES.filter(p =>
+          p.nombre.toLowerCase().includes(filtroTexto.toLowerCase()),
+        );
+
+        return (
+          <div className="max-w-6xl mx-auto px-4 pb-10">
+            <Header />
+
+            <main className="pt-6">
+              <section className="mb-6">
+                <h2 className="text-sm font-semibold text-zinc-100 mb-1">
+                  Panel de costos · versión rápida
+                </h2>
+                <p className="text-xs text-zinc-400 max-w-2xl">
+                  Ingresá el costo por kg de cada producto y obtené
+                  automáticamente el precio sugerido de venta por kilo y por
+                  porción, usando un margen global. Ideal para revisar si los
+                  precios actuales están alineados al bolsillo y al objetivo de
+                  rentabilidad.
+                </p>
+              </section>
+
+              <Filtros
+                filtroTexto={filtroTexto}
+                setFiltroTexto={setFiltroTexto}
+                margenGlobal={margenGlobal}
+                setMargenGlobal={setMargenGlobal}
+              />
+
+              <section className="grid gap-4 md:grid-cols-2">
+                {productosFiltrados.length === 0 ? (
+                  <p className="text-xs text-zinc-500">
+                    No se encontraron productos con ese filtro.
+                  </p>
+                ) : (
+                  productosFiltrados.map(producto => (
+                    <ProductoRow
+                      key={producto.id}
+                      producto={producto}
+                      margenGlobal={margenGlobal}
+                    />
+                  ))
+                )}
+              </section>
+
+              <footer className="mt-8 border-t border-zinc-800 pt-4 text-[11px] text-zinc-500 flex flex-col sm:flex-row gap-2 justify-between">
+                <span>
+                  La Esquina de Maderna · Panel interno de referencia, no es
+                  lista final de precios.
+                </span>
+                <span>Método Fermento · {new Date().getFullYear()}</span>
+              </footer>
+            </main>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
   </body>
 </html>
+
