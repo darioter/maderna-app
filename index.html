@@ -6,12 +6,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
     />
-    <title>La Esquina de Maderna</title>
+    <title>La Esquina de Maderna · Panel de costos</title>
 
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Fuente opcional -->
     <style>
       body {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -32,63 +31,76 @@
       crossorigin
     ></script>
 
-    <!-- Babel para poder usar JSX -->
+    <!-- Babel para JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Tu app -->
+    <!-- App -->
     <script type="text/babel" data-presets="env,react">
-      const { useState } = React;
+      const { useState, useMemo } = React;
 
-      const PRODUCTOS_INICIALES = [
+      // Productos típicos de La Esquina de Maderna
+      const PRODUCTOS_BASE = [
         {
           id: 1,
-          nombre: "Milanesa de pollo",
+          nombre: "Milanesa de pollo sin provenzal",
           categoria: "Pollo",
-          porcionesPorKg: 8,
+          unidad: "kg",
         },
         {
           id: 2,
-          nombre: "Milanesa de carne",
-          categoria: "Carne",
-          porcionesPorKg: 8,
+          nombre: "Milanesa de pollo con provenzal",
+          categoria: "Pollo",
+          unidad: "kg",
         },
         {
           id: 3,
-          nombre: "Pechuguitas rebozadas",
-          categoria: "Pollo",
-          porcionesPorKg: 10,
+          nombre: "Milanesa de carne (bola de lomo)",
+          categoria: "Carne",
+          unidad: "kg",
         },
         {
           id: 4,
-          nombre: "Caritas de papa",
-          categoria: "Papas",
-          porcionesPorKg: 12,
+          nombre: "Milanesa de peceto",
+          categoria: "Carne",
+          unidad: "kg",
         },
         {
           id: 5,
-          nombre: "Bastones de muzzarella",
-          categoria: "Snacks",
-          porcionesPorKg: 14,
+          nombre: "Caritas de papa",
+          categoria: "Papas",
+          unidad: "kg",
         },
         {
           id: 6,
-          nombre: "Papas noisette",
-          categoria: "Papas",
-          porcionesPorKg: 12,
+          nombre: "Bastones de muzzarella",
+          categoria: "Snacks",
+          unidad: "kg",
         },
         {
           id: 7,
+          nombre: "Papas noisette",
+          categoria: "Papas",
+          unidad: "kg",
+        },
+        {
+          id: 8,
+          nombre: "Pechugitas rebozadas",
+          categoria: "Pollo",
+          unidad: "kg",
+        },
+        {
+          id: 9,
           nombre: "Ribs estilo Kansas",
           categoria: "Ribs",
-          porcionesPorKg: 4,
+          unidad: "kg",
         },
       ];
 
-      function calcularPrecios(costoKg, margen) {
-        if (!costoKg || costoKg <= 0) return { precioKg: 0, precioPorcion: 0 };
-        const factor = 1 / (1 - margen / 100); // ej: 60% -> 1 / 0.4 = 2.5
-        const precioKg = costoKg * factor;
-        return { precioKg };
+      function calcularPrecioVenta(costo, margen) {
+        const c = Number(costo) || 0;
+        if (c <= 0) return 0;
+        const factor = 1 / (1 - margen / 100);
+        return c * factor;
       }
 
       function Header() {
@@ -104,12 +116,12 @@
                     La Esquina de Maderna
                   </h1>
                   <p className="text-xs text-zinc-400">
-                    Calculadora rápida de costos y precios de venta
+                    Panel de costos, precios y simulación de tandas
                   </p>
                 </div>
               </div>
-              <div className="hidden sm:flex flex-col items-end text-xs text-zinc-400">
-                <span>Método Fermento · Tool interno</span>
+              <div className="hidden sm:flex flex-col items-end text-[11px] text-zinc-400">
+                <span>Método Fermento · herramienta interna</span>
                 <span>Versión estática · GitHub Pages</span>
               </div>
             </div>
@@ -117,9 +129,14 @@
         );
       }
 
-      function Filtros({ filtroTexto, setFiltroTexto, margenGlobal, setMargenGlobal }) {
+      function ControlesGlobales({
+        margenGlobal,
+        setMargenGlobal,
+        filtroTexto,
+        setFiltroTexto,
+      }) {
         return (
-          <section className="mb-6 flex flex-col sm:flex-row gap-4 sm:items-end">
+          <section className="mt-4 mb-4 flex flex-col md:flex-row gap-4 md:items-end">
             <div className="flex-1">
               <label className="block text-xs font-medium text-zinc-400 mb-1">
                 Buscar producto
@@ -127,189 +144,336 @@
               <input
                 type="text"
                 value={filtroTexto}
-                onChange={e => setFiltroTexto(e.target.value)}
-                placeholder="Ej: milanesa, ribs, caritas..."
+                onChange={(e) => setFiltroTexto(e.target.value)}
+                placeholder="Ej: milanesa, ribs, bastones..."
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
               />
             </div>
-            <div className="w-full sm:w-56">
+            <div className="w-full md:w-56">
               <label className="block text-xs font-medium text-zinc-400 mb-1">
-                Margen deseado (% sobre costo)
+                Margen objetivo global (% sobre costo)
               </label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
                   value={margenGlobal}
-                  onChange={e =>
+                  onChange={(e) =>
                     setMargenGlobal(
-                      Math.min(90, Math.max(10, Number(e.target.value) || 0)),
+                      Math.min(90, Math.max(10, Number(e.target.value) || 0))
                     )
                   }
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
                 />
-                <span className="text-sm text-zinc-400">% margen</span>
+                <span className="text-xs text-zinc-400">%</span>
               </div>
               <p className="mt-1 text-[11px] text-zinc-500">
-                Tip: 60% es un buen objetivo de utilidad neta para congelados.
+                Ej: 60% para tener buena utilidad neta sobre el costo real.
               </p>
             </div>
           </section>
         );
       }
 
-      function ProductoRow({ producto, margenGlobal }) {
-        const [costoKg, setCostoKg] = useState("");
-        const [porcionesPorKg, setPorcionesPorKg] = useState(
-          producto.porcionesPorKg,
-        );
-
-        const { precioKg } = calcularPrecios(Number(costoKg), margenGlobal);
-        const precioPorcion =
-          precioKg && porcionesPorKg > 0
-            ? precioKg / Number(porcionesPorKg)
-            : 0;
-
+      function TablaProductos({
+        productos,
+        margenGlobal,
+        onChangeProducto,
+      }) {
         return (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 sm:p-4 flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-2">
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+            <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold tracking-tight">
-                  {producto.nombre}
-                </h3>
-                <p className="text-xs text-zinc-400">
-                  {producto.categoria} · rendimiento aprox.{" "}
-                  {porcionesPorKg} por kg
+                <h2 className="text-sm font-semibold">
+                  Lista de productos y costos
+                </h2>
+                <p className="text-[11px] text-zinc-400">
+                  Ingresá el costo por {`"unidad"`} (kg o pack) y una cantidad
+                  para simular una tanda.
                 </p>
               </div>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
-                #{producto.id}
+              <span className="hidden sm:inline text-[11px] text-zinc-500">
+                Los precios sugeridos usan el margen objetivo global.
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">
-                  Costo por kg (ARS)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={costoKg}
-                  onChange={e => setCostoKg(e.target.value)}
-                  placeholder="Ej: 4500"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">
-                  Porciones x kg
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={porcionesPorKg}
-                  onChange={e =>
-                    setPorcionesPorKg(Number(e.target.value) || 1)
-                  }
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-                />
-              </div>
-
-              <div className="rounded-xl bg-zinc-950/70 border border-zinc-800 px-3 py-2 flex flex-col justify-center">
-                <span className="text-[11px] text-zinc-400">
-                  Margen aplicado
-                </span>
-                <span className="text-sm font-medium">
-                  {margenGlobal}% sobre costo
-                </span>
-              </div>
+            <div className="overflow-x-auto text-xs">
+              <table className="min-w-full border-separate border-spacing-0">
+                <thead>
+                  <tr className="bg-zinc-950/60">
+                    <th className="text-left font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Producto
+                    </th>
+                    <th className="text-left font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Categoría
+                    </th>
+                    <th className="text-left font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Costo / unidad (ARS)
+                    </th>
+                    <th className="text-left font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Precio sugerido / unidad
+                    </th>
+                    <th className="text-left font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Cantidad simulada (unid.)
+                    </th>
+                    <th className="text-right font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Total costo
+                    </th>
+                    <th className="text-right font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Total venta
+                    </th>
+                    <th className="text-right font-medium text-zinc-400 px-4 py-2 border-b border-zinc-800">
+                      Margen de la tanda
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productos.map((p, idx) => (
+                    <tr
+                      key={p.id}
+                      className={
+                        idx % 2 === 0
+                          ? "bg-zinc-900/60"
+                          : "bg-zinc-900/30"
+                      }
+                    >
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-zinc-100">
+                            {p.nombre}
+                          </span>
+                          <span className="text-[11px] text-zinc-500">
+                            Unidad de referencia: {p.unidad}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-200">
+                          {p.categoria}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top">
+                        <input
+                          type="number"
+                          min="0"
+                          value={p.costo || ""}
+                          onChange={(e) =>
+                            onChangeProducto(p.id, "costo", e.target.value)
+                          }
+                          placeholder="Ej: 4500"
+                          className="w-32 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                        />
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top">
+                        {p.precioVenta > 0 ? (
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-emerald-300">
+                              ARS {p.precioVenta.toFixed(0)}
+                            </span>
+                            <span className="text-[11px] text-zinc-500">
+                              Margen objetivo: {margenGlobal}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">
+                            Ingresá costo para ver sugerido
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top">
+                        <input
+                          type="number"
+                          min="0"
+                          value={p.cantidad || ""}
+                          onChange={(e) =>
+                            onChangeProducto(p.id, "cantidad", e.target.value)
+                          }
+                          placeholder="Ej: 20"
+                          className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                        />
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top text-right">
+                        {p.totalCosto > 0 ? (
+                          <span className="text-zinc-100">
+                            ARS {p.totalCosto.toFixed(0)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top text-right">
+                        {p.totalVenta > 0 ? (
+                          <span className="text-zinc-100">
+                            ARS {p.totalVenta.toFixed(0)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 border-b border-zinc-800 align-top text-right">
+                        {p.totalVenta > 0 ? (
+                          <span
+                            className={
+                              p.margenReal >= margenGlobal
+                                ? "text-emerald-300 font-semibold"
+                                : "text-amber-300 font-semibold"
+                            }
+                          >
+                            {p.margenReal.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </section>
+        );
+      }
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="rounded-xl bg-emerald-900/20 border border-emerald-700/40 px-3 py-2">
-                <p className="text-[11px] text-emerald-300">
-                  Precio sugerido por kg
-                </p>
-                <p className="text-lg font-semibold text-emerald-200">
-                  {precioKg ? `ARS ${precioKg.toFixed(0)}` : "-"}
-                </p>
-              </div>
-              <div className="rounded-xl bg-amber-900/20 border border-amber-700/40 px-3 py-2">
-                <p className="text-[11px] text-amber-300">
-                  Precio sugerido por porción
-                </p>
-                <p className="text-lg font-semibold text-amber-200">
-                  {precioPorcion ? `ARS ${precioPorcion.toFixed(0)}` : "-"}
-                </p>
-              </div>
-              <div className="rounded-xl bg-zinc-950/70 border border-zinc-800 px-3 py-2">
-                <p className="text-[11px] text-zinc-400">
-                  Nota rápida
-                </p>
-                <p className="text-[11px] text-zinc-300">
-                  Ajustá margen y porciones según rendimiento real de cada
-                  producto.
-                </p>
-              </div>
+      function Resumen({ productos }) {
+        const resumen = useMemo(() => {
+          return productos.reduce(
+            (acc, p) => {
+              const totalCosto = p.totalCosto || 0;
+              const totalVenta = p.totalVenta || 0;
+              acc.totalCosto += totalCosto;
+              acc.totalVenta += totalVenta;
+              return acc;
+            },
+            { totalCosto: 0, totalVenta: 0 }
+          );
+        }, [productos]);
+
+        const { totalCosto, totalVenta } = resumen;
+        const margenGlobalReal =
+          totalVenta > 0 ? (1 - totalCosto / totalVenta) * 100 : 0;
+
+        return (
+          <section className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-emerald-700/40 bg-emerald-900/20 px-4 py-3">
+              <h3 className="text-xs font-semibold text-emerald-200 mb-1">
+                Facturación de la tanda simulada
+              </h3>
+              <p className="text-2xl font-bold text-emerald-100">
+                {totalVenta > 0 ? `ARS ${totalVenta.toFixed(0)}` : "-"}
+              </p>
+              <p className="text-[11px] text-emerald-200 mt-1">
+                Suma de todas las cantidades por precio sugerido.
+              </p>
             </div>
-          </div>
+            <div className="rounded-2xl border border-sky-700/40 bg-sky-900/20 px-4 py-3">
+              <h3 className="text-xs font-semibold text-sky-200 mb-1">
+                Costo total de producción
+              </h3>
+              <p className="text-2xl font-bold text-sky-100">
+                {totalCosto > 0 ? `ARS ${totalCosto.toFixed(0)}` : "-"}
+              </p>
+              <p className="text-[11px] text-sky-200 mt-1">
+                Suma de costos por unidad por cantidad simulada.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-amber-700/40 bg-amber-900/20 px-4 py-3">
+              <h3 className="text-xs font-semibold text-amber-100 mb-1">
+                Margen real de la tanda
+              </h3>
+              <p className="text-2xl font-bold text-amber-50">
+                {totalVenta > 0 ? `${margenGlobalReal.toFixed(1)}%` : "-"}
+              </p>
+              <p className="text-[11px] text-amber-100 mt-1">
+                Margen efectivo sobre el mix real cargado.
+              </p>
+            </div>
+          </section>
         );
       }
 
       function App() {
-        const [filtroTexto, setFiltroTexto] = useState("");
         const [margenGlobal, setMargenGlobal] = useState(60);
-
-        const productosFiltrados = PRODUCTOS_INICIALES.filter(p =>
-          p.nombre.toLowerCase().includes(filtroTexto.toLowerCase()),
+        const [filtroTexto, setFiltroTexto] = useState("");
+        const [productosState, setProductosState] = useState(
+          PRODUCTOS_BASE.map((p) => ({
+            ...p,
+            costo: "",
+            cantidad: "",
+          }))
         );
+
+        const productosCalculados = useMemo(() => {
+          return productosState
+            .filter((p) =>
+              p.nombre.toLowerCase().includes(filtroTexto.toLowerCase())
+            )
+            .map((p) => {
+              const costo = Number(p.costo) || 0;
+              const cantidad = Number(p.cantidad) || 0;
+              const precioVenta = calcularPrecioVenta(costo, margenGlobal);
+              const totalCosto = costo * cantidad;
+              const totalVenta = precioVenta * cantidad;
+              const margenReal =
+                totalVenta > 0 ? (1 - totalCosto / totalVenta) * 100 : 0;
+
+              return {
+                ...p,
+                precioVenta,
+                totalCosto,
+                totalVenta,
+                margenReal,
+              };
+            });
+        }, [productosState, filtroTexto, margenGlobal]);
+
+        function handleChangeProducto(id, campo, valor) {
+          setProductosState((prev) =>
+            prev.map((p) =>
+              p.id === id
+                ? {
+                    ...p,
+                    [campo]: valor,
+                  }
+                : p
+            )
+          );
+        }
 
         return (
           <div className="max-w-6xl mx-auto px-4 pb-10">
             <Header />
 
-            <main className="pt-6">
-              <section className="mb-6">
+            <main className="pt-4">
+              <section className="mb-3">
                 <h2 className="text-sm font-semibold text-zinc-100 mb-1">
-                  Panel de costos · versión rápida
+                  Panel de costos y simulación
                 </h2>
                 <p className="text-xs text-zinc-400 max-w-2xl">
-                  Ingresá el costo por kg de cada producto y obtené
-                  automáticamente el precio sugerido de venta por kilo y por
-                  porción, usando un margen global. Ideal para revisar si los
-                  precios actuales están alineados al bolsillo y al objetivo de
-                  rentabilidad.
+                  Usá este panel como tablero rápido para ajustar costos,
+                  precios sugeridos y simular tandas para fábricas, mostrador o
+                  viandas. No es la lista final al público, sino una herramienta
+                  interna de decisión.
                 </p>
               </section>
 
-              <Filtros
-                filtroTexto={filtroTexto}
-                setFiltroTexto={setFiltroTexto}
+              <ControlesGlobales
                 margenGlobal={margenGlobal}
                 setMargenGlobal={setMargenGlobal}
+                filtroTexto={filtroTexto}
+                setFiltroTexto={setFiltroTexto}
               />
 
-              <section className="grid gap-4 md:grid-cols-2">
-                {productosFiltrados.length === 0 ? (
-                  <p className="text-xs text-zinc-500">
-                    No se encontraron productos con ese filtro.
-                  </p>
-                ) : (
-                  productosFiltrados.map(producto => (
-                    <ProductoRow
-                      key={producto.id}
-                      producto={producto}
-                      margenGlobal={margenGlobal}
-                    />
-                  ))
-                )}
-              </section>
+              <TablaProductos
+                productos={productosCalculados}
+                margenGlobal={margenGlobal}
+                onChangeProducto={handleChangeProducto}
+              />
 
-              <footer className="mt-8 border-t border-zinc-800 pt-4 text-[11px] text-zinc-500 flex flex-col sm:flex-row gap-2 justify-between">
+              <Resumen productos={productosCalculados} />
+
+              <footer className="mt-6 border-t border-zinc-800 pt-3 text-[11px] text-zinc-500 flex flex-col sm:flex-row gap-2 justify-between">
                 <span>
-                  La Esquina de Maderna · Panel interno de referencia, no es
-                  lista final de precios.
+                  La Esquina de Maderna · Panel interno de referencia (no
+                  precios finales al público).
                 </span>
                 <span>Método Fermento · {new Date().getFullYear()}</span>
               </footer>
@@ -323,4 +487,3 @@
     </script>
   </body>
 </html>
-
