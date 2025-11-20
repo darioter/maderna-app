@@ -237,8 +237,8 @@
               Productos y precios de venta al público
             </h2>
             <p className="text-xs text-zinc-400 mb-3">
-              Ajustá el precio de venta de cada producto en el Editor (🔐). Aquí
-              ves la referencia de color y el stock estimado.
+              El color de cada producto es solo una referencia visual para
+              identificarlo en la app. Los precios se editan en el Editor (🔐).
             </p>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -247,32 +247,29 @@
                 return (
                   <div
                     key={p.id}
-                    className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 flex flex-col gap-2"
+                    className="rounded-2xl border border-zinc-800 bg-zinc-900/70 overflow-hidden"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="px-3 py-2 flex items-center justify-between"
+                      style={{ backgroundColor: p.color }}
+                    >
                       <div className="flex items-center gap-2">
-                        <span
-                          className="w-4 h-4 rounded-full border border-zinc-900"
-                          style={{ backgroundColor: p.color }}
-                        ></span>
+                        <span className="w-2 h-6 rounded-full bg-black/20"></span>
                         <div>
-                          <h3 className="text-sm font-semibold">{p.nombre}</h3>
-                          <p className="text-[11px] text-zinc-400">
-                            ID #{p.id} ·{" "}
-                            {p.activo ? "Activo en app" : "Inactivo"}
+                          <h3 className="text-sm font-semibold text-zinc-900 drop-shadow">
+                            {p.nombre}
+                          </h3>
+                          <p className="text-[11px] text-black/70">
+                            ID #{p.id}
                           </p>
                         </div>
                       </div>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400">
-                        Color:
-                        <span
-                          className="w-6 h-6 rounded-full border border-zinc-700"
-                          style={{ backgroundColor: p.color }}
-                        ></span>
+                      <span className="text-[11px] text-black/80 font-semibold">
+                        {p.activo ? "Activo" : "Inactivo"}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs mt-1">
+                    <div className="p-3 grid grid-cols-2 gap-2 text-xs">
                       <div>
                         <span className="block text-[11px] text-zinc-400 mb-0.5">
                           Precio venta público (ARS)
@@ -299,9 +296,9 @@
                       </div>
                     </div>
 
-                    <div className="text-[11px] text-zinc-500 mt-1 pt-1 border-t border-zinc-800">
-                      Para editar precios, colores o activar/desactivar productos
-                      usá la pestaña <span className="text-amber-300">Editor</span>.
+                    <div className="px-3 pb-2 text-[11px] text-zinc-500 border-t border-zinc-800">
+                      Para cambiar nombres, precios o colores usá la pestaña{" "}
+                      <span className="text-amber-300">Editor</span>.
                     </div>
                   </div>
                 );
@@ -400,8 +397,8 @@
               <div>
                 <h2 className="text-sm font-semibold">Nueva comanda</h2>
                 <p className="text-xs text-zinc-400">
-                  Armá la comanda, elegí forma de pago y guardala. Podés cambiar
-                  su estado abajo (pendiente, producción, entregada).
+                  Armá la comanda, elegí forma de pago y guardala. Abajo podés
+                  cambiar su estado (pendiente, producción, entregada).
                 </p>
               </div>
               <div className="text-[11px] text-zinc-500">
@@ -519,7 +516,13 @@
                                       e.target.value
                                     )
                                   }
-                                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-1 py-1 text-xs"
+                                  className="w-full rounded-lg border border-zinc-700 px-1 py-1 text-xs"
+                                  style={{
+                                    backgroundColor: prod
+                                      ? prod.color
+                                      : "#111827",
+                                    color: "#000",
+                                  }}
                                 >
                                   {productosActivos.map((p) => (
                                     <option key={p.id} value={p.id}>
@@ -792,6 +795,56 @@
           alert("Producción guardada.");
         };
 
+        // edición de producciones guardadas
+        const actualizarProduccionItem = (prodId, index, campo, valor) => {
+          setProducciones((prev) =>
+            prev.map((p) =>
+              p.id === prodId
+                ? {
+                    ...p,
+                    items: p.items.map((it, idx) =>
+                      idx === index
+                        ? {
+                            ...it,
+                            [campo]:
+                              campo === "cantidad"
+                                ? Math.max(1, Number(valor) || 1)
+                                : Number(valor),
+                          }
+                        : it
+                    ),
+                  }
+                : p
+            )
+          );
+        };
+
+        const actualizarProduccionNota = (prodId, nuevaNota) => {
+          setProducciones((prev) =>
+            prev.map((p) =>
+              p.id === prodId
+                ? {
+                    ...p,
+                    nota: nuevaNota,
+                  }
+                : p
+            )
+          );
+        };
+
+        const eliminarLineaProduccionGuardada = (prodId, index) => {
+          setProducciones((prev) =>
+            prev.map((p) =>
+              p.id === prodId
+                ? {
+                    ...p,
+                    items: p.items.filter((_, idx) => idx !== index),
+                  }
+                : p
+            )
+          );
+        };
+
         return (
           <section className="mt-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
@@ -850,55 +903,66 @@
                           </td>
                         </tr>
                       ) : (
-                        items.map((it) => (
-                          <tr
-                            key={it.idLinea}
-                            className="border-b border-zinc-800"
-                          >
-                            <td className="px-2 py-1">
-                              <select
-                                value={it.productoId}
-                                onChange={(e) =>
-                                  actualizarLinea(
-                                    it.idLinea,
-                                    "productoId",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-1 py-1 text-xs"
-                              >
-                                {productosActivos.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.nombre}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-2 py-1">
-                              <input
-                                type="number"
-                                min="1"
-                                value={it.cantidad}
-                                onChange={(e) =>
-                                  actualizarLinea(
-                                    it.idLinea,
-                                    "cantidad",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-1 py-1 text-xs text-right"
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right">
-                              <button
-                                onClick={() => eliminarLinea(it.idLinea)}
-                                className="text-[11px] text-red-400 hover:text-red-300"
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        items.map((it) => {
+                          const prodSel = productos.find(
+                            (p) => p.id === it.productoId
+                          );
+                          return (
+                            <tr
+                              key={it.idLinea}
+                              className="border-b border-zinc-800"
+                            >
+                              <td className="px-2 py-1">
+                                <select
+                                  value={it.productoId}
+                                  onChange={(e) =>
+                                    actualizarLinea(
+                                      it.idLinea,
+                                      "productoId",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full rounded-lg border border-zinc-700 px-1 py-1 text-xs"
+                                  style={{
+                                    backgroundColor: prodSel
+                                      ? prodSel.color
+                                      : "#111827",
+                                    color: "#000",
+                                  }}
+                                >
+                                  {productosActivos.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.nombre}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={it.cantidad}
+                                  onChange={(e) =>
+                                    actualizarLinea(
+                                      it.idLinea,
+                                      "cantidad",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-1 py-1 text-xs text-right"
+                                />
+                              </td>
+                              <td className="px-2 py-1 text-right">
+                                <button
+                                  onClick={() => eliminarLinea(it.idLinea)}
+                                  className="text-[11px] text-red-400 hover:text-red-300"
+                                >
+                                  ✕
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -941,6 +1005,146 @@
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Producciones guardadas (editables) */}
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 text-xs">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xs font-semibold text-zinc-200">
+                  Producciones guardadas
+                </h3>
+                <span className="text-[11px] text-zinc-500">
+                  Total: {producciones.length}
+                </span>
+              </div>
+
+              {producciones.length === 0 ? (
+                <p className="text-[11px] text-zinc-500">
+                  Todavía no hay producciones guardadas.
+                </p>
+              ) : (
+                <div className="space-y-3 max-h-72 overflow-auto pr-1">
+                  {producciones
+                    .slice()
+                    .sort((a, b) => (a.fecha > b.fecha ? -1 : 1))
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        className="border border-zinc-800 rounded-xl p-2 bg-zinc-950/60"
+                      >
+                        <div className="flex justify-between items-start gap-2 mb-1">
+                          <div>
+                            <p className="text-[11px] text-zinc-200">
+                              {new Date(p.fecha).toLocaleString("es-AR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                            <input
+                              type="text"
+                              value={p.nota || ""}
+                              onChange={(e) =>
+                                actualizarProduccionNota(p.id, e.target.value)
+                              }
+                              placeholder="Nota interna"
+                              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-[11px]"
+                            />
+                          </div>
+                          <span className="text-[10px] text-zinc-500">
+                            {p.items.length} líneas
+                          </span>
+                        </div>
+
+                        <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                          <table className="min-w-full border-separate border-spacing-0 text-[11px]">
+                            <thead className="bg-zinc-900/80">
+                              <tr>
+                                <th className="text-left px-2 py-1 border-b border-zinc-800">
+                                  Producto
+                                </th>
+                                <th className="text-left px-2 py-1 border-b border-zinc-800">
+                                  Cantidad
+                                </th>
+                                <th className="px-2 py-1 border-b border-zinc-800"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {p.items.map((it, idx) => {
+                                const prodSel = productos.find(
+                                  (pr) => pr.id === it.productoId
+                                );
+                                return (
+                                  <tr
+                                    key={p.id + "-it-" + idx}
+                                    className="border-b border-zinc-800"
+                                  >
+                                    <td className="px-2 py-1">
+                                      <select
+                                        value={it.productoId}
+                                        onChange={(e) =>
+                                          actualizarProduccionItem(
+                                            p.id,
+                                            idx,
+                                            "productoId",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="w-full rounded-lg border border-zinc-700 px-1 py-1"
+                                        style={{
+                                          backgroundColor: prodSel
+                                            ? prodSel.color
+                                            : "#111827",
+                                          color: "#000",
+                                        }}
+                                      >
+                                        {productos.map((pr) => (
+                                          <option key={pr.id} value={pr.id}>
+                                            {pr.nombre}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="px-2 py-1">
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={it.cantidad}
+                                        onChange={(e) =>
+                                          actualizarProduccionItem(
+                                            p.id,
+                                            idx,
+                                            "cantidad",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-1 py-1 text-right"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-1 text-right">
+                                      <button
+                                        onClick={() =>
+                                          eliminarLineaProduccionGuardada(
+                                            p.id,
+                                            idx
+                                          )
+                                        }
+                                        className="text-[11px] text-red-400 hover:text-red-300"
+                                      >
+                                        ✕
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           </section>
         );
