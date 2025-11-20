@@ -1858,31 +1858,66 @@
           async function initDatos() {
             try {
               if (nubeDisponible()) {
-                const data = await cargarPanelDesdeNube();
-                if (cancelado) return;
-                if (data) {
-                  setProductos(data.productos);
-                  setComandas(data.comandas);
-                  setProducciones(data.producciones);
-                  setUsaNube(true);
-                  console.log("Modo colaborativo (Firebase).");
-                } else {
-                  const prods = cargarDesdeStorage(
-                    STORAGE_KEYS.productos,
-                    PRODUCTOS_INICIALES
-                  );
-                  const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
-                  const prods2 = cargarDesdeStorage(
-                    STORAGE_KEYS.producciones,
-                    []
-                  );
-                  setProductos(prods);
-                  setComandas(cmds);
-                  setProducciones(prods2);
-                  setUsaNube(false);
-                  console.log("Modo local (localStorage).");
-                }
-              } else {
+  console.log("Iniciando modo colaborativo realtime…");
+
+  const docRef = db
+    .collection(PANEL_COLLECTION)
+    .doc(PANEL_DOC_ID);
+
+  const unsubscribe = docRef.onSnapshot(
+    (snap) => {
+      if (cancelado) return;
+
+      if (!snap.exists) {
+        console.log("Documento no existe, creando datos iniciales…");
+        docRef.set({
+          productos: PRODUCTOS_INICIALES,
+          comandas: [],
+          producciones: []
+        });
+        return;
+      }
+
+      const data = snap.data();
+
+      setProductos(data.productos || PRODUCTOS_INICIALES);
+      setComandas(data.comandas || []);
+      setProducciones(data.producciones || []);
+
+      setUsaNube(true);
+      setCargando(false);
+    },
+    (error) => {
+      console.error("Error onSnapshot:", error);
+
+      if (!cancelado) {
+        const prods = cargarDesdeStorage(
+          STORAGE_KEYS.productos,
+          PRODUCTOS_INICIALES
+        );
+        const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
+        const prods2 = cargarDesdeStorage(
+          STORAGE_KEYS.producciones,
+          []
+        );
+
+        setProductos(prods);
+        setComandas(cmds);
+        setProducciones(prods2);
+
+        setUsaNube(false);
+        setCargando(false);
+      }
+    }
+  );
+
+  // cleanup
+  return () => {
+    cancelado = true;
+    unsubscribe && unsubscribe();
+  };
+}
+
                 const prods = cargarDesdeStorage(
                   STORAGE_KEYS.productos,
                   PRODUCTOS_INICIALES
