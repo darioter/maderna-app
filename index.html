@@ -52,21 +52,21 @@
 
       // --- Productos iniciales ---
       const PRODUCTOS_INICIALES = [
-        { id: 1, nombre: "Milanesa de Pollo (sin provenzal)", color: "#A3E4B3", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 2, nombre: "Milanesa de Pollo (con provenzal)", color: "#45B39D", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 3, nombre: "Milanesa de Nalga", color: "#F1948A", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 4, nombre: "Milanesa de Peceto", color: "#C0392B", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 5, nombre: "Ribs estilo Kansas BBQ", color: "#D98880", precioVenta: 0, activo: true, unidadStock: "kg" },
-        { id: 6, nombre: "Bastones de papa", color: "#F9E79F", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 7, nombre: "Caritas de papa", color: "#F4D03F", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 8, nombre: "Papas Noisette", color: "#F5B041", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 9, nombre: "Pechugitas rebozadas", color: "#85C1E9", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 10, nombre: "Nuggets crocantes", color: "#2E86C1", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 11, nombre: "Pechugas Frescas", color: "#F39DC4", precioVenta: 0, activo: true, unidadStock: "kg" },
-        { id: 12, nombre: "Medallones de Pollo x 12", color: "#9DC610", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 13, nombre: "Medallones de Pollo x 6", color: "#E77326", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 14, nombre: "Promo Mila + Baston", color: "#c414e7", precioVenta: 0, activo: true, unidadStock: "un" },
-        { id: 15, nombre: "Promo Mila Carne + Baston", color: "#0688b3", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 1, nombre: "Milanesa de Pollo (sin provenzal)", color: "#A3E4B3", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 2, nombre: "Milanesa de Pollo (con provenzal)", color: "#45B39D", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 3, nombre: "Milanesa de Nalga", color: "#F1948A", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 4, nombre: "Milanesa de Peceto", color: "#C0392B", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 5, nombre: "Ribs estilo Kansas BBQ", color: "#D98880", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "kg" },
+        { id: 6, nombre: "Bastones de papa", color: "#F9E79F", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 7, nombre: "Caritas de papa", color: "#F4D03F", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 8, nombre: "Papas Noisette", color: "#F5B041", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 9, nombre: "Pechugitas rebozadas", color: "#85C1E9", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 10, nombre: "Nuggets crocantes", color: "#2E86C1", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 11, nombre: "Pechugas Frescas", color: "#F39DC4", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "kg" },
+        { id: 12, nombre: "Medallones de Pollo x 12", color: "#9DC610", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 13, nombre: "Medallones de Pollo x 6", color: "#E77326", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 14, nombre: "Promo Mila + Baston", color: "#c414e7", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
+        { id: 15, nombre: "Promo Mila Carne + Baston", color: "#0688b3", precioVenta: 0, precioCosto: 0, activo: true, unidadStock: "un" },
       ];
 
       // --- Helpers storage local ---
@@ -1866,6 +1866,7 @@
             nombre: "Nuevo producto",
             color: "#f97316",
             precioVenta: 0,
+            precioCosto: 0,
             activo: true,
             unidadStock: "un",
           };
@@ -1879,7 +1880,7 @@
                 ? {
                     ...p,
                     [campo]:
-                      campo === "precioVenta"
+                      campo === "precioVenta" || campo === "precioCosto"
                         ? Number(valor) || 0
                         : campo === "activo"
                         ? Boolean(valor)
@@ -1952,7 +1953,7 @@
             </h2>
             <p className="text-xs text-zinc-500 mb-3">
               Ajustá productos, precios, colores y limpiá comandas /
-              producciones.
+              producciones. El precio al costo es solo referencia interna.
             </p>
 
             <div className="grid gap-4 md:grid-cols-2 text-xs">
@@ -1994,7 +1995,7 @@
                           Eliminar
                         </button>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 mt-1">
+                      <div className="grid grid-cols-5 gap-2 mt-1">
                         <div>
                           <label className="block text-[10px] text-zinc-500 mb-0.5">
                             Precio venta
@@ -2006,6 +2007,23 @@
                               actualizarProducto(
                                 p.id,
                                 "precioVenta",
+                                e.target.value
+                              )
+                            }
+                            className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-zinc-500 mb-0.5">
+                            Precio costo
+                          </label>
+                          <input
+                            type="number"
+                            value={p.precioCosto ?? ""}
+                            onChange={(e) =>
+                              actualizarProducto(
+                                p.id,
+                                "precioCosto",
                                 e.target.value
                               )
                             }
