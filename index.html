@@ -10,7 +10,8 @@
 
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
     <style>
       body {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -188,6 +189,63 @@
         } catch (e) {
           console.error("Error guardando storage", clave, e);
         }
+      }
+      // --- Firebase (opcional, para modo colaborativo) ---
+      // COMPLETAR ESTOS DATOS CON TU PROYECTO DE FIREBASE
+      const firebaseConfig = {
+        apiKey: "TU_API_KEY",
+        authDomain: "TU_PROYECTO.firebaseapp.com",
+        projectId: "TU_PROJECT_ID",
+      };
+
+      let db = null;
+
+      try {
+        if (window.firebase && firebaseConfig.apiKey !== "TU_API_KEY") {
+          const appFirebase = firebase.initializeApp(firebaseConfig);
+          db = firebase.firestore();
+          console.log("Firebase conectado en modo colaborativo.");
+        } else {
+          console.warn(
+            "Firebase no configurado. Se usará solo almacenamiento local (localStorage)."
+          );
+        }
+      } catch (e) {
+        console.warn("Error inicializando Firebase, se usará localStorage.", e);
+      }
+
+      const PANEL_COLLECTION = "maderna_panel";
+      const PANEL_DOC_ID = "panelGeneral";
+
+      function nubeDisponible() {
+        return !!db;
+      }
+
+      async function cargarPanelDesdeNube() {
+        if (!db) return null;
+        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
+        const snap = await docRef.get();
+        if (!snap.exists) {
+          const inicial = {
+            productos: PRODUCTOS_INICIALES,
+            comandas: [],
+            producciones: [],
+          };
+          await docRef.set(inicial);
+          return inicial;
+        }
+        const data = snap.data() || {};
+        return {
+          productos: data.productos || PRODUCTOS_INICIALES,
+          comandas: data.comandas || [],
+          producciones: data.producciones || [],
+        };
+      }
+
+      function guardarPanelParcialEnNube(parcial) {
+        if (!db) return;
+        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
+        return docRef.set(parcial, { merge: true });
       }
 
       // --- Header y navegación ---
@@ -1776,6 +1834,284 @@
               </div>
             </div>
           </section>
+        );
+      }
+      // --- App principal (ahora con opción colaborativa) ---
+      function App() {
+        const [screen, setScreen] = useState("productos");
+
+        // estados principales
+        const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
+        const [comandas, setComandas] = useState([]);
+        const [producciones, setProducciones] = useState([]);
+
+        // comanda rápida desde Productos (carrito de mostrador)
+        const [borradorComandaRapida, setBorradorComandaRapida] =
+          useState(null);
+
+        // flags de sincronización
+        const [usaNube, setUsaNube] = useState(false);
+        const [cargando, setCargando] = useState(true);
+
+        // Carga inicial: primero intenta nube, si no localStorage
+        useEffect(() => {
+          let cancelado = false;
+
+          async function initDatos() {
+            try {
+              if (nubeDisponible()) {
+                const data = await cargarPanelDesdeNube();
+                if (cancelado) return;
+                setProductos(data.productos);
+                setComandas(data.comandas);
+                setProducciones(data.producciones);
+                setUsaNube(true);
+                console.log("Usando datos colaborativos (Firebase).");
+              } else {
+                const prods = cargarDesdeStorage(
+                  STORAGE_KEYS.productos,
+                  PRODUCTOS_INICIALES
+                );
+                const cmds = cargarDesdeStorage(
+                  STORAGE_KEYS.comandas,
+                  []
+                );
+                const prods2 = cargarDesdeStorage(
+                  STORAGE_KEYS.producciones,
+                  []
+                );
+                if (cancelado) return;
+                setProductos(prods);
+                setComandas(cmds);
+                setProducciones(prods2);
+                setUsaNube(false);
+                console.log("Usando datos locales (localStorage).");
+              }
+            } catch (e) {
+              console.error("Error inicializando datos, uso localStorage:", e);
+              const prods = cargarDesdeStorage(
+                STORAGE_KEYS.productos,
+                PRODUCTOS_INICIALES
+              );
+              const cmds = cargarDesdeStorage(
+                STORAGE_KEYS.comandas,
+                []
+              );
+              const prods2 = cargarDesdeStorage(
+                STORAGE_KEYS.producciones,
+                []
+              );
+              if (cancelado) return;
+              setProductos(prods);
+              setComandas(cmds);
+              setProducciones(prods2);
+              setUsaNube(false);
+            } finally {
+              if (!cancelado) setCargando(false);
+            }
+          }
+
+          initDatos();
+
+          return () => {
+            cancelado = true;
+          };
+        }, []);
+
+        // Sincronizar productos
+        useEffect(() => {
+          if (cargando) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ productos });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.productos, productos);
+          }
+        }, [productos, usaNube, cargando]);
+
+        // Sincronizar comandas
+        useEffect(() => {
+          if (cargando) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ comandas });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.comandas, comandas);
+          }
+        }, [comandas, usaNube, cargando]);
+
+        // Sincronizar producciones
+        useEffect(() => {
+          if (cargando) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ producciones });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.producciones, producciones);
+          }
+        }, [producciones, usaNube, cargando]);
+
+        // stock acumulado (producciones - comandas)
+        const stockPorProducto = useMemo(() => {
+          const stock = {};
+          producciones.forEach((prd) => {
+            prd.items.forEach((it) => {
+              stock[it.productoId] = (stock[it.productoId] || 0) + it.cantidad;
+            });
+          });
+          comandas.forEach((cmd) => {
+            cmd.items.forEach((it) => {
+              stock[it.productoId] = (stock[it.productoId] || 0) - it.cantidad;
+            });
+          });
+          return stock;
+        }, [producciones, comandas]);
+
+        // --- Comanda rápida desde Productos (sigue igual que la versión anterior) ---
+        const agregarProductoABorrador = (productoId, cantidad) => {
+          const prod = productos.find((p) => p.id === productoId);
+          if (!prod) return;
+          setBorradorComandaRapida((prev) => {
+            const base =
+              prev && prev.items
+                ? prev
+                : {
+                    cliente: "Mostrador",
+                    formaPago: "efectivo",
+                    nota: "Comanda rápida desde Productos",
+                    items: [],
+                  };
+            const items = [...base.items];
+            const idx = items.findIndex(
+              (it) => it.productoId === productoId
+            );
+            if (idx >= 0) {
+              items[idx] = {
+                ...items[idx],
+                cantidad: items[idx].cantidad + cantidad,
+              };
+            } else {
+              items.push({
+                productoId: prod.id,
+                nombre: prod.nombre,
+                cantidad,
+                precioUnitario: prod.precioVenta || 0,
+              });
+            }
+            return { ...base, items };
+          });
+        };
+
+        const confirmarBorradorComandaRapida = () => {
+          if (
+            !borradorComandaRapida ||
+            !borradorComandaRapida.items ||
+            borradorComandaRapida.items.length === 0
+          ) {
+            alert("No hay productos en la comanda rápida.");
+            return;
+          }
+          const ahora = new Date();
+          const items = borradorComandaRapida.items.map((it) => {
+            const prod = productos.find((p) => p.id === it.productoId);
+            return {
+              productoId: it.productoId,
+              nombre: prod ? prod.nombre : it.nombre,
+              cantidad: it.cantidad,
+              precioUnitario: prod
+                ? prod.precioVenta || 0
+                : it.precioUnitario || 0,
+            };
+          });
+          const comanda = {
+            id: "CMD-" + ahora.getTime(),
+            fecha: ahora.toISOString(),
+            cliente: borradorComandaRapida.cliente || "Mostrador",
+            formaPago: borradorComandaRapida.formaPago || "efectivo",
+            nota:
+              borradorComandaRapida.nota ||
+              "Comanda rápida desde Productos",
+            status: "pendiente",
+            items,
+          };
+          setComandas((prev) => [...prev, comanda]);
+          setBorradorComandaRapida(null);
+          alert("Comanda rápida guardada.");
+        };
+
+        const vaciarBorradorComandaRapida = () => {
+          if (!borradorComandaRapida || !borradorComandaRapida.items) return;
+          if (
+            confirm(
+              "¿Vaciar la comanda rápida actual? Se perderán los productos cargados."
+            )
+          ) {
+            setBorradorComandaRapida(null);
+          }
+        };
+
+        // Mientras carga datos iniciales, mostramos un pequeño loader
+        if (cargando) {
+          return (
+            <div className="max-w-6xl mx-auto px-4 pb-10">
+              <Header screen={screen} setScreen={setScreen} />
+              <main className="pt-4 text-xs text-zinc-500">
+                Cargando datos del panel...
+              </main>
+            </div>
+          );
+        }
+
+        return (
+          <div className="max-w-6xl mx-auto px-4 pb-10">
+            <Header screen={screen} setScreen={setScreen} />
+
+            <main className="pt-4">
+              {screen === "productos" && (
+                <PantallaProductos
+                  productos={productos}
+                  stockPorProducto={stockPorProducto}
+                  borradorComandaRapida={borradorComandaRapida}
+                  onAgregarProductoBorrador={agregarProductoABorrador}
+                  onConfirmarBorrador={confirmarBorradorComandaRapida}
+                  onVaciarBorrador={vaciarBorradorComandaRapida}
+                />
+              )}
+              {screen === "comandas" && (
+                <PantallaComandas
+                  productos={productos}
+                  comandas={comandas}
+                  setComandas={setComandas}
+                />
+              )}
+              {screen === "produccion" && (
+                <PantallaProduccion
+                  productos={productos}
+                  producciones={producciones}
+                  setProducciones={setProducciones}
+                />
+              )}
+              {screen === "caja" && <PantallaCaja comandas={comandas} />}
+              {screen === "editor" && (
+                <PantallaEditor
+                  productos={productos}
+                  setProductos={setProductos}
+                  comandas={comandas}
+                  setComandas={setComandas}
+                  producciones={producciones}
+                  setProducciones={setProducciones}
+                />
+              )}
+
+              <footer className="mt-8 border-t border-zinc-200 pt-3 text-[11px] text-zinc-500 flex flex-col sm:flex-row gap-2 justify-between">
+                <span>
+                  La Esquina de Maderna · Panel interno (no es lista de precios
+                  oficial).
+                </span>
+                <span>
+                  Método Fermento · {new Date().getFullYear()}{" "}
+                  {usaNube ? "· Modo colaborativo" : "· Modo local"}
+                </span>
+              </footer>
+            </main>
+          </div>
         );
       }
 
