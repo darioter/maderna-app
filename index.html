@@ -11,6 +11,10 @@
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Firebase (para modo colaborativo) -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+
     <style>
       body {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -37,7 +41,7 @@
     <script type="text/babel" data-presets="env,react">
       const { useState, useEffect, useMemo } = React;
 
-      // --- Configuración de storage ---
+      // --- Configuración de storage local ---
       const STORAGE_KEYS = {
         productos: "maderna_productos_v1",
         comandas: "maderna_comandas_v1",
@@ -168,7 +172,7 @@
         },
       ];
 
-      // --- Helpers de storage ---
+      // --- Helpers de storage local ---
       function cargarDesdeStorage(clave, defaultValue) {
         if (typeof localStorage === "undefined") return defaultValue;
         try {
@@ -185,9 +189,74 @@
       function guardarEnStorage(clave, valor) {
         try {
           localStorage.setItem(clave, JSON.stringify(valor));
-          } catch (e) {
+        } catch (e) {
           console.error("Error guardando storage", clave, e);
         }
+      }
+
+      // --- Firebase (para modo colaborativo) ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyDezDfFOozeT8HR_Nslg1xihLFwT8SwCSs",
+        authDomain: "maderna-app.firebaseapp.com",
+        projectId: "maderna-app",
+        storageBucket: "maderna-app.firebasestorage.app",
+        messagingSenderId: "816020564615",
+        appId: "1:816020564615:web:d5c0d3a84f2b8b55866622",
+      };
+
+      let db = null;
+
+      (function initFirebaseSafe() {
+        try {
+          if (typeof firebase !== "undefined") {
+            const app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log("Firebase conectado (modo colaborativo activo).");
+          } else {
+            console.log(
+              "Firebase no disponible en window. Se usa modo local."
+            );
+          }
+        } catch (e) {
+          console.warn("Error inicializando Firebase, se usa modo local.", e);
+          db = null;
+        }
+      })();
+
+      const PANEL_COLLECTION = "maderna_panel";
+      const PANEL_DOC_ID = "panelGeneral";
+
+      function nubeDisponible() {
+        return !!db;
+      }
+
+      async function cargarPanelDesdeNube() {
+        if (!db) return null;
+        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
+        const snap = await docRef.get();
+        if (!snap.exists) {
+          const inicial = {
+            productos: PRODUCTOS_INICIALES,
+            comandas: [],
+            producciones: [],
+          };
+          await docRef.set(inicial);
+          return inicial;
+        }
+        const data = snap.data() || {};
+        return {
+          productos: data.productos || PRODUCTOS_INICIALES,
+          comandas: data.comandas || [],
+          producciones: data.producciones || [],
+        };
+      }
+
+      function guardarPanelParcialEnNube(parcial) {
+        if (!db) return;
+        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
+        docRef.set(parcial, { merge: true }).catch((e) => {
+          console.warn("Error guardando en Firebase", e);
+        });
       }
 
       // --- Header y navegación ---
@@ -253,7 +322,6 @@
         onConfirmarBorrador,
         onVaciarBorrador,
       }) {
-        // Calcula totales del borrador
         const resumenBorrador = useMemo(() => {
           if (!borradorComandaRapida || !borradorComandaRapida.items?.length)
             return { total: 0, cantidadItems: 0 };
@@ -298,7 +366,6 @@
               acá o trabajar más detallado en la pestaña Comandas.
             </p>
 
-            {/* Resumen de comanda rápida en curso */}
             {borradorComandaRapida?.items?.length > 0 && (
               <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
@@ -719,13 +786,13 @@
                     Guardar comanda
                   </button>
                   <p className="text-[11px] text-zinc-500">
-                    La comanda se guarda solo en este dispositivo (localStorage).
+                    La comanda se guarda en este panel (modo local o
+                    colaborativo según configuración).
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Comandas guardadas */}
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3 text-xs">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-xs font-semibold text-zinc-800">
@@ -897,7 +964,6 @@
           alert("Producción guardada.");
         };
 
-        // edición de producciones guardadas
         const actualizarProduccionItem = (prodId, index, campo, valor) => {
           setProducciones((prev) =>
             prev.map((p) =>
@@ -1111,14 +1177,13 @@
                     Guardar producción
                   </button>
                   <p className="text-[11px] text-zinc-500">
-                    Los datos quedan guardados solo en este dispositivo
-                    (localStorage).
+                    Los datos quedan guardados en el panel (local o nube según
+                    configuración).
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Producciones guardadas (editables) */}
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3 text-xs">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-xs font-semibold text-zinc-800">
@@ -1277,7 +1342,6 @@
           let totalMP = 0;
           let totalOtro = 0;
 
-          // Solo comandas entregadas (o viejas sin status)
           const entregadas = comandas.filter(
             (c) => !c.status || c.status === "entregada"
           );
@@ -1453,7 +1517,7 @@
       }) {
         const [passwordInput, setPasswordInput] = useState("");
         const [desbloqueado, setDesbloqueado] = useState(false);
-        const PASSWORD_REAL = "maderna2025"; // cambiable
+        const PASSWORD_REAL = "maderna2025";
 
         const intentarDesbloquear = () => {
           if (passwordInput === PASSWORD_REAL) {
@@ -1553,7 +1617,6 @@
           );
         }
 
-        // Vista cuando está desbloqueado
         return (
           <section className="mt-4">
             <h2 className="text-sm font-semibold mb-1">
@@ -1565,7 +1628,6 @@
             </p>
 
             <div className="grid gap-4 md:grid-cols-2 text-xs">
-              {/* Editor de productos */}
               <div className="rounded-2xl border border-zinc-200 bg-white p-3 flex flex-col gap-2">
                 <div className="flex justify-between items-center mb-1">
                   <h3 className="text-xs font-semibold text-zinc-800">
@@ -1683,7 +1745,6 @@
                 </div>
               </div>
 
-              {/* Listado para borrar comandas y producciones */}
               <div className="space-y-3">
                 <div className="rounded-2xl border border-zinc-200 bg-white p-3">
                   <h3 className="text-xs font-semibold text-zinc-800 mb-1">
@@ -1701,7 +1762,7 @@
                         .map((c) => (
                           <div
                             key={c.id}
-                            className="flex justify-between items-center border-b border-zinc-200 py-1"
+                            className="flex justify_between items-center border-b border-zinc-200 py-1"
                           >
                             <div>
                               <p className="text-[11px] text-zinc-800">
@@ -1745,7 +1806,7 @@
                         .map((p) => (
                           <div
                             key={p.id}
-                            className="flex justify-between items-center border-b border-zinc-200 py-1"
+                            className="flex justify_between items-center border-b border-zinc-200 py-1"
                           >
                             <div>
                               <p className="text-[11px] text-zinc-800">
@@ -1777,35 +1838,122 @@
         );
       }
 
-      // --- App principal (solo localStorage) ---
+      // --- App principal (local + colaborativo opcional) ---
       function App() {
         const [screen, setScreen] = useState("productos");
 
-        const [productos, setProductos] = useState(() =>
-          cargarDesdeStorage(STORAGE_KEYS.productos, PRODUCTOS_INICIALES)
-        );
-        const [comandas, setComandas] = useState(() =>
-          cargarDesdeStorage(STORAGE_KEYS.comandas, [])
-        );
-        const [producciones, setProducciones] = useState(() =>
-          cargarDesdeStorage(STORAGE_KEYS.producciones, [])
-        );
+        const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
+        const [comandas, setComandas] = useState([]);
+        const [producciones, setProducciones] = useState([]);
 
-        // Borrador de comanda rápida desde Productos
         const [borradorComandaRapida, setBorradorComandaRapida] =
           useState(null);
 
-        useEffect(() => {
-          guardarEnStorage(STORAGE_KEYS.productos, productos);
-        }, [productos]);
-        useEffect(() => {
-          guardarEnStorage(STORAGE_KEYS.comandas, comandas);
-        }, [comandas]);
-        useEffect(() => {
-          guardarEnStorage(STORAGE_KEYS.producciones, producciones);
-        }, [producciones]);
+        const [usaNube, setUsaNube] = useState(false);
+        const [cargandoInicial, setCargandoInicial] = useState(true);
 
-        // stock acumulado (producciones - comandas)
+        useEffect(() => {
+          let cancelado = false;
+
+          async function initDatos() {
+            try {
+              if (nubeDisponible()) {
+                const data = await cargarPanelDesdeNube();
+                if (cancelado) return;
+                if (data) {
+                  setProductos(data.productos);
+                  setComandas(data.comandas);
+                  setProducciones(data.producciones);
+                  setUsaNube(true);
+                  console.log("Modo colaborativo (Firebase).");
+                } else {
+                  const prods = cargarDesdeStorage(
+                    STORAGE_KEYS.productos,
+                    PRODUCTOS_INICIALES
+                  );
+                  const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
+                  const prods2 = cargarDesdeStorage(
+                    STORAGE_KEYS.producciones,
+                    []
+                  );
+                  setProductos(prods);
+                  setComandas(cmds);
+                  setProducciones(prods2);
+                  setUsaNube(false);
+                  console.log("Modo local (localStorage).");
+                }
+              } else {
+                const prods = cargarDesdeStorage(
+                  STORAGE_KEYS.productos,
+                  PRODUCTOS_INICIALES
+                );
+                const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
+                const prods2 = cargarDesdeStorage(
+                  STORAGE_KEYS.producciones,
+                  []
+                );
+                if (cancelado) return;
+                setProductos(prods);
+                setComandas(cmds);
+                setProducciones(prods2);
+                setUsaNube(false);
+                console.log("Modo local (localStorage).");
+              }
+            } catch (e) {
+              console.warn("Error en init, se usa modo local:", e);
+              const prods = cargarDesdeStorage(
+                STORAGE_KEYS.productos,
+                PRODUCTOS_INICIALES
+              );
+              const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
+              const prods2 = cargarDesdeStorage(
+                STORAGE_KEYS.producciones,
+                []
+              );
+              if (cancelado) return;
+              setProductos(prods);
+              setComandas(cmds);
+              setProducciones(prods2);
+              setUsaNube(false);
+            } finally {
+              if (!cancelado) setCargandoInicial(false);
+            }
+          }
+
+          initDatos();
+
+          return () => {
+            cancelado = true;
+          };
+        }, []);
+
+        useEffect(() => {
+          if (cargandoInicial) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ productos });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.productos, productos);
+          }
+        }, [productos, usaNube, cargandoInicial]);
+
+        useEffect(() => {
+          if (cargandoInicial) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ comandas });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.comandas, comandas);
+          }
+        }, [comandas, usaNube, cargandoInicial]);
+
+        useEffect(() => {
+          if (cargandoInicial) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ producciones });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.producciones, producciones);
+          }
+        }, [producciones, usaNube, cargandoInicial]);
+
         const stockPorProducto = useMemo(() => {
           const stock = {};
           producciones.forEach((prd) => {
@@ -1821,7 +1969,6 @@
           return stock;
         }, [producciones, comandas]);
 
-        // Agregar producto a la comanda rápida (borrador)
         const agregarProductoABorrador = (productoId, cantidad) => {
           const prod = productos.find((p) => p.id === productoId);
           if (!prod) return;
@@ -1904,6 +2051,17 @@
           }
         };
 
+        if (cargandoInicial) {
+          return (
+            <div className="max-w-6xl mx-auto px-4 pb-10">
+              <Header screen={screen} setScreen={setScreen} />
+              <main className="pt-4 text-xs text-zinc-500">
+                Cargando datos del panel...
+              </main>
+            </div>
+          );
+        }
+
         return (
           <div className="max-w-6xl mx-auto px-4 pb-10">
             <Header screen={screen} setScreen={setScreen} />
@@ -1950,7 +2108,10 @@
                   La Esquina de Maderna · Panel interno (no es lista de precios
                   oficial).
                 </span>
-                <span>Método Fermento · {new Date().getFullYear()}</span>
+                <span>
+                  Método Fermento · {new Date().getFullYear()} ·{" "}
+                  {usaNube ? "Modo colaborativo (Firebase)" : "Modo local"}
+                </span>
               </footer>
             </main>
           </div>
