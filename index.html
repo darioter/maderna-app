@@ -192,60 +192,19 @@
       }
       // --- Firebase (opcional, para modo colaborativo) ---
       // COMPLETAR ESTOS DATOS CON TU PROYECTO DE FIREBASE
-      const firebaseConfig = {
-        apiKey: "TU_API_KEY",
-        authDomain: "TU_PROYECTO.firebaseapp.com",
-        projectId: "TU_PROJECT_ID",
-      };
-
+            // --- Firebase desactivado (modo solo local) ---
       let db = null;
 
-      try {
-        if (window.firebase && firebaseConfig.apiKey !== "TU_API_KEY") {
-          const appFirebase = firebase.initializeApp(firebaseConfig);
-          db = firebase.firestore();
-          console.log("Firebase conectado en modo colaborativo.");
-        } else {
-          console.warn(
-            "Firebase no configurado. Se usará solo almacenamiento local (localStorage)."
-          );
-        }
-      } catch (e) {
-        console.warn("Error inicializando Firebase, se usará localStorage.", e);
-      }
-
-      const PANEL_COLLECTION = "maderna_panel";
-      const PANEL_DOC_ID = "panelGeneral";
-
       function nubeDisponible() {
-        return !!db;
+        return false; // siempre modo local
       }
 
       async function cargarPanelDesdeNube() {
-        if (!db) return null;
-        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
-        const snap = await docRef.get();
-        if (!snap.exists) {
-          const inicial = {
-            productos: PRODUCTOS_INICIALES,
-            comandas: [],
-            producciones: [],
-          };
-          await docRef.set(inicial);
-          return inicial;
-        }
-        const data = snap.data() || {};
-        return {
-          productos: data.productos || PRODUCTOS_INICIALES,
-          comandas: data.comandas || [],
-          producciones: data.producciones || [],
-        };
+        return null; // no carga nada de nube
       }
 
       function guardarPanelParcialEnNube(parcial) {
-        if (!db) return;
-        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
-        return docRef.set(parcial, { merge: true });
+        // no hace nada; sólo stub
       }
 
       // --- Header y navegación ---
