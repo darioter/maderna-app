@@ -46,6 +46,8 @@
         productos: "maderna_productos_v1",
         comandas: "maderna_comandas_v1",
         producciones: "maderna_producciones_v1",
+        gastosFijos: "maderna_gastosFijos_v1",
+        gastosVariables: "maderna_gastosVariables_v1",
       };
 
       // --- Productos iniciales ---
@@ -137,6 +139,7 @@
           { id: "comandas", label: "Comandas" },
           { id: "produccion", label: "Producción / Stock" },
           { id: "caja", label: "Caja / Cashflow" },
+          { id: "gastos", label: "Gastos / Costos" },
           { id: "editor", label: "Editor (🔐)" },
         ];
 
@@ -153,7 +156,7 @@
                       La Esquina de Maderna
                     </h1>
                     <p className="text-xs text-zinc-500">
-                      Panel interno · productos, comandas, producción y caja
+                      Panel interno · productos, comandas, producción, caja y gastos
                     </p>
                   </div>
                 </div>
@@ -1191,7 +1194,7 @@
       }
 
       // --- Pantalla Caja / Cashflow ---
-      function PantallaCaja({ comandas }) {
+      function PantallaCaja({ comandas, gastosFijos, gastosVariables }) {
         const resumen = useMemo(() => {
           let totalEfectivo = 0;
           let totalMP = 0;
@@ -1214,6 +1217,30 @@
           const totalGeneral = totalEfectivo + totalMP + totalOtro;
           return { totalEfectivo, totalMP, totalOtro, totalGeneral };
         }, [comandas]);
+
+        const totalGastosFijosMensuales = useMemo(
+          () =>
+            (gastosFijos || []).reduce(
+              (acc, g) =>
+                g.activo ? acc + (Number(g.monto) || 0) : acc,
+              0
+            ),
+          [gastosFijos]
+        );
+
+        const totalGastosVariables = useMemo(
+          () =>
+            (gastosVariables || []).reduce(
+              (acc, g) => acc + (Number(g.monto) || 0),
+              0
+            ),
+          [gastosVariables]
+        );
+
+        const resultadoNeto =
+          resumen.totalGeneral -
+          totalGastosFijosMensuales -
+          totalGastosVariables;
 
         const ultimasComandas = [...comandas]
           .sort((a, b) => (a.fecha > b.fecha ? -1 : 1))
@@ -1240,7 +1267,7 @@
           <section className="mt-4">
             <h2 className="text-sm font-semibold mb-1">Caja y cashflow</h2>
             <p className="text-xs text-zinc-500 mb-3">
-              Solo suma comandas en estado ENTREGADA.
+              Ventas (solo comandas ENTREGADAS) menos gastos fijos y variables.
             </p>
 
             <div className="grid gap-4 md:grid-cols-4 text-xs mb-4">
@@ -1267,11 +1294,60 @@
                 </p>
               </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="text-[11px] text-amber-700">Total general</p>
+                <p className="text-[11px] text-amber-700">Total ventas</p>
                 <p className="text-xl font-bold text-amber-900">
                   {resumen.totalGeneral
                     ? `ARS ${resumen.totalGeneral.toFixed(0)}`
                     : "-"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3 text-xs mb-4">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2">
+                <p className="text-[11px] text-red-700">
+                  Gastos fijos mensuales (activos)
+                </p>
+                <p className="text-xl font-bold text-red-900">
+                  {totalGastosFijosMensuales
+                    ? `ARS ${totalGastosFijosMensuales.toFixed(0)}`
+                    : "-"}
+                </p>
+                <p className="text-[10px] text-red-700">
+                  Se consideran todos los gastos fijos marcados como activos.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 px-3 py-2">
+                <p className="text-[11px] text-orange-700">
+                  Gastos variables cargados
+                </p>
+                <p className="text-xl font-bold text-orange-900">
+                  {totalGastosVariables
+                    ? `ARS ${totalGastosVariables.toFixed(0)}`
+                    : "-"}
+                </p>
+                <p className="text-[10px] text-orange-700">
+                  Compras de materia prima, papelería, publicidad, otros.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-2">
+                <p className="text-[11px] text-emerald-700">
+                  Resultado neto (ventas - gastos)
+                </p>
+                <p
+                  className={
+                    "text-xl font-bold " +
+                    (resultadoNeto >= 0
+                      ? "text-emerald-900"
+                      : "text-red-800")
+                  }
+                >
+                  {resumen.totalGeneral
+                    ? `ARS ${resultadoNeto.toFixed(0)}`
+                    : "-"}
+                </p>
+                <p className="text-[10px] text-emerald-700">
+                  Referencial: no filtra por mes aún, suma todo lo cargado.
                 </p>
               </div>
             </div>
@@ -1353,6 +1429,406 @@
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      // --- Pantalla Gastos / Costos ---
+      function PantallaGastos({
+        gastosFijos,
+        setGastosFijos,
+        gastosVariables,
+        setGastosVariables,
+      }) {
+        // Nuevo gasto variable (form)
+        const [nuevoVar, setNuevoVar] = useState({
+          fecha: new Date().toISOString().substring(0, 10),
+          categoria: "materia_prima",
+          descripcion: "",
+          monto: "",
+        });
+
+        const agregarGastoFijo = () => {
+          setGastosFijos((prev) => [
+            ...prev,
+            {
+              id: "GF-" + Date.now(),
+              nombre: "Nuevo gasto fijo",
+              monto: 0,
+              diaDebito: 5,
+              activo: true,
+            },
+          ]);
+        };
+
+        const actualizarGastoFijo = (id, campo, valor) => {
+          setGastosFijos((prev) =>
+            prev.map((g) =>
+              g.id === id
+                ? {
+                    ...g,
+                    [campo]:
+                      campo === "monto" || campo === "diaDebito"
+                        ? Number(valor) || 0
+                        : campo === "activo"
+                        ? Boolean(valor)
+                        : valor,
+                  }
+                : g
+            )
+          );
+        };
+
+        const eliminarGastoFijo = (id) => {
+          if (!confirm("¿Eliminar este gasto fijo?")) return;
+          setGastosFijos((prev) => prev.filter((g) => g.id !== id));
+        };
+
+        const agregarGastoVariable = () => {
+          if (!nuevoVar.descripcion || !nuevoVar.monto) {
+            alert("Completar descripción y monto.");
+            return;
+          }
+          const montoNum = Number(nuevoVar.monto);
+          if (!montoNum || montoNum <= 0) {
+            alert("Monto inválido.");
+            return;
+          }
+          setGastosVariables((prev) => [
+            ...prev,
+            {
+              id: "GV-" + Date.now(),
+              fecha: nuevoVar.fecha,
+              categoria: nuevoVar.categoria,
+              descripcion: nuevoVar.descripcion,
+              monto: montoNum,
+            },
+          ]);
+          setNuevoVar({
+            fecha: new Date().toISOString().substring(0, 10),
+            categoria: "materia_prima",
+            descripcion: "",
+            monto: "",
+          });
+        };
+
+        const eliminarGastoVariable = (id) => {
+          if (!confirm("¿Eliminar este gasto variable?")) return;
+          setGastosVariables((prev) => prev.filter((g) => g.id !== id));
+        };
+
+        const totalFijosActivos = useMemo(
+          () =>
+            (gastosFijos || []).reduce(
+              (acc, g) =>
+                g.activo ? acc + (Number(g.monto) || 0) : acc,
+              0
+            ),
+          [gastosFijos]
+        );
+
+        const totalVariables = useMemo(
+          () =>
+            (gastosVariables || []).reduce(
+              (acc, g) => acc + (Number(g.monto) || 0),
+              0
+            ),
+          [gastosVariables]
+        );
+
+        return (
+          <section className="mt-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+              <div>
+                <h2 className="text-sm font-semibold">
+                  Gastos / Costos del negocio
+                </h2>
+                <p className="text-xs text-zinc-500">
+                  Cargá gastos fijos mensuales (alrededor del día 5) y gastos
+                  variables como compras de materia prima, papelería,
+                  publicidad u otros.
+                </p>
+              </div>
+              <div className="text-[11px] text-zinc-500">
+                Fijos activos:{" "}
+                <span className="font-semibold text-red-700">
+                  ARS {totalFijosActivos.toFixed(0)}
+                </span>{" "}
+                · Variables:{" "}
+                <span className="font-semibold text-orange-700">
+                  ARS {totalVariables.toFixed(0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* GASTOS FIJOS */}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3 text-xs">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-xs font-semibold text-zinc-800">
+                    Gastos fijos mensuales
+                  </h3>
+                  <button
+                    onClick={agregarGastoFijo}
+                    className="text-xs px-2 py-1 rounded-full bg-red-500 text-white font-semibold hover:bg-red-400"
+                  >
+                    + Agregar gasto fijo
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-500 mb-2">
+                  Ejemplos: alquiler, servicios, sueldos, impuestos, etc. Se
+                  consideran debitados el día 5 de cada mes a nivel referencia.
+                </p>
+
+                {gastosFijos.length === 0 ? (
+                  <p className="text-[11px] text-zinc-500">
+                    No hay gastos fijos cargados.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                    {gastosFijos.map((g) => (
+                      <div
+                        key={g.id}
+                        className="border border-zinc-200 rounded-xl p-2 bg-zinc-50 flex flex-col gap-1"
+                      >
+                        <div className="flex justify-between items-center gap-2">
+                          <input
+                            type="text"
+                            value={g.nombre}
+                            onChange={(e) =>
+                              actualizarGastoFijo(
+                                g.id,
+                                "nombre",
+                                e.target.value
+                              )
+                            }
+                            className="flex-1 rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                          />
+                          <button
+                            onClick={() => eliminarGastoFijo(g.id)}
+                            className="text-[11px] text-red-500 hover:text-red-400"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-zinc-500 mb-0.5">
+                              Monto mensual
+                            </label>
+                            <input
+                              type="number"
+                              value={g.monto || ""}
+                              onChange={(e) =>
+                                actualizarGastoFijo(
+                                  g.id,
+                                  "monto",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-zinc-500 mb-0.5">
+                              Día débito
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="31"
+                              value={g.diaDebito || 5}
+                              onChange={(e) =>
+                                actualizarGastoFijo(
+                                  g.id,
+                                  "diaDebito",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                            />
+                          </div>
+                          <div className="flex flex-col justify-center">
+                            <label className="block text-[10px] text-zinc-500 mb-0.5">
+                              Activo
+                            </label>
+                            <label className="inline-flex items-center gap-1 text-[11px] text-zinc-700">
+                              <input
+                                type="checkbox"
+                                checked={g.activo}
+                                onChange={(e) =>
+                                  actualizarGastoFijo(
+                                    g.id,
+                                    "activo",
+                                    e.target.checked
+                                  )
+                                }
+                              />
+                              Vigente
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* GASTOS VARIABLES */}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3 text-xs flex flex-col gap-3">
+                <div>
+                  <h3 className="text-xs font-semibold text-zinc-800 mb-1">
+                    Gastos variables / Compras
+                  </h3>
+                  <p className="text-[11px] text-zinc-500">
+                    Cargá compras de materia prima, insumos, papelería,
+                    publicidad, otros. Se cruzan luego en Caja.
+                  </p>
+                </div>
+
+                <div className="border border-zinc-200 rounded-xl p-2 bg-zinc-50 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-zinc-500 mb-0.5">
+                        Fecha
+                      </label>
+                      <input
+                        type="date"
+                        value={nuevoVar.fecha}
+                        onChange={(e) =>
+                          setNuevoVar((prev) => ({
+                            ...prev,
+                            fecha: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-zinc-500 mb-0.5">
+                        Categoría
+                      </label>
+                      <select
+                        value={nuevoVar.categoria}
+                        onChange={(e) =>
+                          setNuevoVar((prev) => ({
+                            ...prev,
+                            categoria: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                      >
+                        <option value="materia_prima">
+                          Materia prima
+                        </option>
+                        <option value="papeleria">Papelería</option>
+                        <option value="publicidad">Publicidad</option>
+                        <option value="otros">Otros</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 mb-0.5">
+                      Descripción
+                    </label>
+                    <input
+                      type="text"
+                      value={nuevoVar.descripcion}
+                      onChange={(e) =>
+                        setNuevoVar((prev) => ({
+                          ...prev,
+                          descripcion: e.target.value,
+                        }))
+                      }
+                      placeholder="Ej: compra pechuga, flyers, bolsas..."
+                      className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                    />
+                  </div>
+                  <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
+                    <div>
+                      <label className="block text-[10px] text-zinc-500 mb-0.5">
+                        Monto (ARS)
+                      </label>
+                      <input
+                        type="number"
+                        value={nuevoVar.monto}
+                        onChange={(e) =>
+                          setNuevoVar((prev) => ({
+                            ...prev,
+                            monto: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                      />
+                    </div>
+                    <button
+                      onClick={agregarGastoVariable}
+                      className="rounded-full bg-orange-500 text-white font-semibold py-1.5 px-3 text-xs hover:bg-orange-400"
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border border-zinc-200 rounded-xl p-2 bg-white flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className="text-xs font-semibold text-zinc-800">
+                      Gastos variables cargados
+                    </h4>
+                    <span className="text-[11px] text-zinc-500">
+                      Total: {gastosVariables.length}
+                    </span>
+                  </div>
+                  {gastosVariables.length === 0 ? (
+                    <p className="text-[11px] text-zinc-500">
+                      No hay gastos variables aún.
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-auto pr-1 space-y-1">
+                      {[...gastosVariables]
+                        .sort((a, b) =>
+                          a.fecha > b.fecha ? -1 : 1
+                        )
+                        .map((g) => (
+                          <div
+                            key={g.id}
+                            className="border border-zinc-200 rounded-lg px-2 py-1 text-[11px] flex justify-between items-start gap-2"
+                          >
+                            <div>
+                              <p className="text-zinc-800">
+                                {g.descripcion}
+                              </p>
+                              <p className="text-zinc-500">
+                                {g.fecha} ·{" "}
+                                {g.categoria === "materia_prima"
+                                  ? "Materia prima"
+                                  : g.categoria === "papeleria"
+                                  ? "Papelería"
+                                  : g.categoria === "publicidad"
+                                  ? "Publicidad"
+                                  : "Otros"}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-orange-700">
+                                ARS {g.monto.toFixed(0)}
+                              </p>
+                              <button
+                                onClick={() =>
+                                  eliminarGastoVariable(g.id)
+                                }
+                                className="text-[10px] text-red-500 hover:text-red-400"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </section>
@@ -1697,35 +2173,44 @@
         const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
         const [comandas, setComandas] = useState([]);
         const [producciones, setProducciones] = useState([]);
+        const [gastosFijos, setGastosFijos] = useState([]);
+        const [gastosVariables, setGastosVariables] = useState([]);
         const [borradorComandaRapida, setBorradorComandaRapida] =
           useState(null);
 
         const [usaNube, setUsaNube] = useState(false);
         const [cargandoInicial, setCargandoInicial] = useState(true);
 
+        // Carga local (helper)
+        function cargarLocal() {
+          const prods = cargarDesdeStorage(
+            STORAGE_KEYS.productos,
+            PRODUCTOS_INICIALES
+          );
+          const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
+          const prods2 = cargarDesdeStorage(
+            STORAGE_KEYS.producciones,
+            []
+          );
+          const gf = cargarDesdeStorage(STORAGE_KEYS.gastosFijos, []);
+          const gv = cargarDesdeStorage(
+            STORAGE_KEYS.gastosVariables,
+            []
+          );
+          setProductos(prods);
+          setComandas(cmds);
+          setProducciones(prods2);
+          setGastosFijos(gf);
+          setGastosVariables(gv);
+          setUsaNube(false);
+          setCargandoInicial(false);
+          console.log("Modo local (localStorage).");
+        }
+
         // Carga inicial + realtime Firebase
         useEffect(() => {
           let cancelado = false;
           let unsubscribe = null;
-
-          function cargarLocal() {
-            const prods = cargarDesdeStorage(
-              STORAGE_KEYS.productos,
-              PRODUCTOS_INICIALES
-            );
-            const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
-            const prods2 = cargarDesdeStorage(
-              STORAGE_KEYS.producciones,
-              []
-            );
-            if (cancelado) return;
-            setProductos(prods);
-            setComandas(cmds);
-            setProducciones(prods2);
-            setUsaNube(false);
-            setCargandoInicial(false);
-            console.log("Modo local (localStorage).");
-          }
 
           async function initDatos() {
             try {
@@ -1747,6 +2232,8 @@
                         productos: PRODUCTOS_INICIALES,
                         comandas: [],
                         producciones: [],
+                        gastosFijos: [],
+                        gastosVariables: [],
                       });
                       return;
                     }
@@ -1757,6 +2244,8 @@
                     );
                     setComandas(data.comandas || []);
                     setProducciones(data.producciones || []);
+                    setGastosFijos(data.gastosFijos || []);
+                    setGastosVariables(data.gastosVariables || []);
                     setUsaNube(true);
                     setCargandoInicial(false);
                   },
@@ -1811,6 +2300,27 @@
             guardarEnStorage(STORAGE_KEYS.producciones, producciones);
           }
         }, [producciones, usaNube, cargandoInicial]);
+
+        useEffect(() => {
+          if (cargandoInicial) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ gastosFijos });
+          } else {
+            guardarEnStorage(STORAGE_KEYS.gastosFijos, gastosFijos);
+          }
+        }, [gastosFijos, usaNube, cargandoInicial]);
+
+        useEffect(() => {
+          if (cargandoInicial) return;
+          if (usaNube) {
+            guardarPanelParcialEnNube({ gastosVariables });
+          } else {
+            guardarEnStorage(
+              STORAGE_KEYS.gastosVariables,
+              gastosVariables
+            );
+          }
+        }, [gastosVariables, usaNube, cargandoInicial]);
 
         // Stock estimado
         const stockPorProducto = useMemo(() => {
@@ -1950,7 +2460,21 @@
                   setProducciones={setProducciones}
                 />
               )}
-              {screen === "caja" && <PantallaCaja comandas={comandas} />}
+              {screen === "caja" && (
+                <PantallaCaja
+                  comandas={comandas}
+                  gastosFijos={gastosFijos}
+                  gastosVariables={gastosVariables}
+                />
+              )}
+              {screen === "gastos" && (
+                <PantallaGastos
+                  gastosFijos={gastosFijos}
+                  setGastosFijos={setGastosFijos}
+                  gastosVariables={gastosVariables}
+                  setGastosVariables={setGastosVariables}
+                />
+              )}
               {screen === "editor" && (
                 <PantallaEditor
                   productos={productos}
