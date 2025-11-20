@@ -46,70 +46,113 @@
 
       // --- Datos iniciales ---
       const PRODUCTOS_INICIALES = [
-        {
-          id: 1,
-          nombre: "Milanesa pollo s/provenzal",
-          color: "#f97316", // naranja
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 2,
-          nombre: "Milanesa pollo c/provenzal",
-          color: "#22c55e", // verde
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 3,
-          nombre: "Milanesa carne (bola de lomo)",
-          color: "#3b82f6", // azul
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 4,
-          nombre: "Milanesa de peceto",
-          color: "#a855f7", // violeta
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 5,
-          nombre: "Caritas de papa",
-          color: "#eab308", // amarillo
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 6,
-          nombre: "Bastones de muzzarella",
-          color: "#ec4899", // rosa
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 7,
-          nombre: "Papas noisette",
-          color: "#14b8a6", // teal
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 8,
-          nombre: "Pechugitas rebozadas",
-          color: "#f97316",
-          precioVenta: 0,
-          activo: true,
-        },
-        {
-          id: 9,
-          nombre: "Ribs estilo Kansas",
-          color: "#ef4444",
-          precioVenta: 0,
-          activo: true,
-        },
-      ];
+  {
+    id: 1,
+    nombre: "Milanesa de Pollo (sin provenzal)",
+    color: "#A3E4B3",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 2,
+    nombre: "Milanesa de Pollo (con provenzal)",
+    color: "#45B39D",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 3,
+    nombre: "Milanesa de Nalga",
+    color: "#F1948A",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 4,
+    nombre: "Milanesa de Peceto",
+    color: "#C0392B",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 5,
+    nombre: "Ribs estilo Kansas BBQ",
+    color: "#D98880",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 6,
+    nombre: "Bastones de papa",
+    color: "#F9E79F",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 7,
+    nombre: "Caritas de papa",
+    color: "#F4D03F",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 8,
+    nombre: "Papas Noisette",
+    color: "#F5B041",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 9,
+    nombre: "Pechugitas rebozadas",
+    color: "#85C1E9",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 10,
+    nombre: "Nuggets crocantes",
+    color: "#2E86C1",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 11,
+    nombre: "Pechugas Frescas",
+    color: "#F39DC4",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 12,
+    nombre: "Medallones de Pollo x 12",
+    color: "#9DC610",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 13,
+    nombre: "Medallones de Pollo x 6",
+    color: "#E77326",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 14,
+    nombre: "Promo Mila + Baston",
+    color: "#c414e7",
+    precioVenta: 0,
+    activo: true,
+  },
+  {
+    id: 15,
+    nombre: "Promo Mila Carne + Baston",
+    color: "#0688b3",
+    precioVenta: 0,
+    activo: true,
+  },
+];
+
 
       // --- Helpers de storage ---
       function cargarDesdeStorage(clave, defaultValue) {
