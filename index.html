@@ -11,7 +11,7 @@
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Firebase (para modo colaborativo) -->
+    <!-- Firebase (modo colaborativo) -->
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
@@ -41,145 +41,39 @@
     <script type="text/babel" data-presets="env,react">
       const { useState, useEffect, useMemo } = React;
 
-      // --- Configuración de storage local ---
+      // --- Claves storage local ---
       const STORAGE_KEYS = {
         productos: "maderna_productos_v1",
         comandas: "maderna_comandas_v1",
         producciones: "maderna_producciones_v1",
       };
 
-      // --- Productos iniciales con tus colores + unidad de stock ---
+      // --- Productos iniciales ---
       const PRODUCTOS_INICIALES = [
-        {
-          id: 1,
-          nombre: "Milanesa de Pollo (sin provenzal)",
-          color: "#A3E4B3",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 2,
-          nombre: "Milanesa de Pollo (con provenzal)",
-          color: "#45B39D",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 3,
-          nombre: "Milanesa de Nalga",
-          color: "#F1948A",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 4,
-          nombre: "Milanesa de Peceto",
-          color: "#C0392B",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 5,
-          nombre: "Ribs estilo Kansas BBQ",
-          color: "#D98880",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "kg",
-        },
-        {
-          id: 6,
-          nombre: "Bastones de papa",
-          color: "#F9E79F",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 7,
-          nombre: "Caritas de papa",
-          color: "#F4D03F",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 8,
-          nombre: "Papas Noisette",
-          color: "#F5B041",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 9,
-          nombre: "Pechugitas rebozadas",
-          color: "#85C1E9",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 10,
-          nombre: "Nuggets crocantes",
-          color: "#2E86C1",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 11,
-          nombre: "Pechugas Frescas",
-          color: "#F39DC4",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "kg",
-        },
-        {
-          id: 12,
-          nombre: "Medallones de Pollo x 12",
-          color: "#9DC610",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 13,
-          nombre: "Medallones de Pollo x 6",
-          color: "#E77326",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 14,
-          nombre: "Promo Mila + Baston",
-          color: "#c414e7",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
-        {
-          id: 15,
-          nombre: "Promo Mila Carne + Baston",
-          color: "#0688b3",
-          precioVenta: 0,
-          activo: true,
-          unidadStock: "un",
-        },
+        { id: 1, nombre: "Milanesa de Pollo (sin provenzal)", color: "#A3E4B3", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 2, nombre: "Milanesa de Pollo (con provenzal)", color: "#45B39D", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 3, nombre: "Milanesa de Nalga", color: "#F1948A", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 4, nombre: "Milanesa de Peceto", color: "#C0392B", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 5, nombre: "Ribs estilo Kansas BBQ", color: "#D98880", precioVenta: 0, activo: true, unidadStock: "kg" },
+        { id: 6, nombre: "Bastones de papa", color: "#F9E79F", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 7, nombre: "Caritas de papa", color: "#F4D03F", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 8, nombre: "Papas Noisette", color: "#F5B041", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 9, nombre: "Pechugitas rebozadas", color: "#85C1E9", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 10, nombre: "Nuggets crocantes", color: "#2E86C1", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 11, nombre: "Pechugas Frescas", color: "#F39DC4", precioVenta: 0, activo: true, unidadStock: "kg" },
+        { id: 12, nombre: "Medallones de Pollo x 12", color: "#9DC610", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 13, nombre: "Medallones de Pollo x 6", color: "#E77326", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 14, nombre: "Promo Mila + Baston", color: "#c414e7", precioVenta: 0, activo: true, unidadStock: "un" },
+        { id: 15, nombre: "Promo Mila Carne + Baston", color: "#0688b3", precioVenta: 0, activo: true, unidadStock: "un" },
       ];
 
-      // --- Helpers de storage local ---
+      // --- Helpers storage local ---
       function cargarDesdeStorage(clave, defaultValue) {
         if (typeof localStorage === "undefined") return defaultValue;
         try {
           const raw = localStorage.getItem(clave);
           if (!raw) return defaultValue;
-          const parsed = JSON.parse(raw);
-          return parsed;
+          return JSON.parse(raw);
         } catch (e) {
           console.error("Error leyendo storage", clave, e);
           return defaultValue;
@@ -194,7 +88,7 @@
         }
       }
 
-      // --- Firebase (para modo colaborativo) ---
+      // --- Firebase ---
       const firebaseConfig = {
         apiKey: "AIzaSyDezDfFOozeT8HR_Nslg1xihLFwT8SwCSs",
         authDomain: "maderna-app.firebaseapp.com",
@@ -211,14 +105,12 @@
           if (typeof firebase !== "undefined") {
             const app = firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
-            console.log("Firebase conectado (modo colaborativo activo).");
+            console.log("Firebase conectado.");
           } else {
-            console.log(
-              "Firebase no disponible en window. Se usa modo local."
-            );
+            console.log("Firebase no disponible, modo local.");
           }
         } catch (e) {
-          console.warn("Error inicializando Firebase, se usa modo local.", e);
+          console.warn("Error inicializando Firebase, modo local.", e);
           db = null;
         }
       })();
@@ -230,27 +122,6 @@
         return !!db;
       }
 
-      async function cargarPanelDesdeNube() {
-        if (!db) return null;
-        const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
-        const snap = await docRef.get();
-        if (!snap.exists) {
-          const inicial = {
-            productos: PRODUCTOS_INICIALES,
-            comandas: [],
-            producciones: [],
-          };
-          await docRef.set(inicial);
-          return inicial;
-        }
-        const data = snap.data() || {};
-        return {
-          productos: data.productos || PRODUCTOS_INICIALES,
-          comandas: data.comandas || [],
-          producciones: data.producciones || [],
-        };
-      }
-
       function guardarPanelParcialEnNube(parcial) {
         if (!db) return;
         const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
@@ -259,8 +130,8 @@
         });
       }
 
-      // --- Header y navegación ---
-      function Header({ screen, setScreen }) {
+      // --- Header ---
+      function Header({ screen, setScreen, usaNube }) {
         const tabs = [
           { id: "productos", label: "Productos" },
           { id: "comandas", label: "Comandas" },
@@ -282,13 +153,15 @@
                       La Esquina de Maderna
                     </h1>
                     <p className="text-xs text-zinc-500">
-                      Panel de productos, comandas, producción y caja
+                      Panel interno · productos, comandas, producción y caja
                     </p>
                   </div>
                 </div>
                 <div className="hidden sm:flex flex-col items-end text-[11px] text-zinc-400">
                   <span>Método Fermento · Herramienta interna</span>
-                  <span>Versión estática · GitHub Pages</span>
+                  <span>
+                    {usaNube ? "Modo colaborativo (Firebase)" : "Modo local"}
+                  </span>
                 </div>
               </div>
 
@@ -323,11 +196,10 @@
         onVaciarBorrador,
       }) {
         const resumenBorrador = useMemo(() => {
-          if (!borradorComandaRapida || !borradorComandaRapida.items?.length)
+          if (!borradorComandaRapida?.items?.length)
             return { total: 0, cantidadItems: 0 };
           const total = borradorComandaRapida.items.reduce((acc, it) => {
-            const prod = productos.find((p) => p.id === it.productoId);
-            const precio = prod ? prod.precioVenta || 0 : it.precioUnitario || 0;
+            const precio = it.precioUnitario || 0;
             return acc + precio * it.cantidad;
           }, 0);
           const cantidadItems = borradorComandaRapida.items.reduce(
@@ -335,9 +207,9 @@
             0
           );
           return { total, cantidadItems };
-        }, [borradorComandaRapida, productos]);
+        }, [borradorComandaRapida]);
 
-        const manejarAgregarProducto = (productoId) => {
+        const manejarAgregar = (productoId) => {
           const prod = productos.find((p) => p.id === productoId);
           if (!prod) return;
           const unidad = (prod.unidadStock || "un") === "kg" ? "kg" : "un.";
@@ -350,9 +222,8 @@
             alert("Cantidad inválida.");
             return;
           }
-          onAgregarProductoBorrador &&
-            onAgregarProductoBorrador(productoId, cantidad);
-          alert("Producto agregado a la comanda rápida actual.");
+          onAgregarProductoBorrador(productoId, cantidad);
+          alert("Producto agregado a la comanda rápida.");
         };
 
         return (
@@ -361,9 +232,7 @@
               Productos y precios de venta al público
             </h2>
             <p className="text-xs text-zinc-500 mb-3">
-              El color de cada producto es solo una referencia visual para
-              identificarlo en la app. Podés cargar una comanda rápida desde
-              acá o trabajar más detallado en la pestaña Comandas.
+              El color es solo visual para identificar el producto en la app.
             </p>
 
             {borradorComandaRapida?.items?.length > 0 && (
@@ -373,9 +242,7 @@
                     Comanda rápida en curso (Mostrador)
                   </p>
                   <p className="text-sm text-amber-900 font-bold">
-                    {resumenBorrador.total
-                      ? `Total: ARS ${resumenBorrador.total.toFixed(0)}`
-                      : "Sin total"}
+                    Total: ARS {resumenBorrador.total.toFixed(0)}
                   </p>
                   <p className="text-[11px] text-amber-800">
                     {resumenBorrador.cantidadItems} unidades en{" "}
@@ -387,7 +254,7 @@
                     onClick={onConfirmarBorrador}
                     className="flex-1 sm:flex-none rounded-full bg-amber-500 text-zinc-900 font-semibold py-1.5 px-3 text-xs hover:bg-amber-400"
                   >
-                    Confirmar comanda rápida
+                    Confirmar comanda
                   </button>
                   <button
                     onClick={onVaciarBorrador}
@@ -416,7 +283,7 @@
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-6 rounded-full bg-black/15"></span>
                         <div>
-                          <h3 className="text-sm font-semibold text-zinc-900 drop-shadow">
+                          <h3 className="text-sm font-semibold text-zinc-900">
                             {p.nombre}
                           </h3>
                           <p className="text-[11px] text-black/70">
@@ -432,7 +299,7 @@
                     <div className="p-3 grid grid-cols-2 gap-2 text-xs">
                       <div>
                         <span className="block text-[11px] text-zinc-500 mb-0.5">
-                          Precio venta público (ARS)
+                          Precio venta público
                         </span>
                         <span className="text-sm font-semibold text-emerald-700">
                           {p.precioVenta
@@ -458,13 +325,13 @@
 
                     <div className="px-3 pb-2 pt-1 border-t border-zinc-200 flex flex-col gap-1">
                       <button
-                        onClick={() => manejarAgregarProducto(p.id)}
+                        onClick={() => manejarAgregar(p.id)}
                         className="w-full rounded-full bg-amber-500 text-zinc-900 font-semibold py-1.5 text-xs hover:bg-amber-400"
                       >
                         + Cargar a comanda rápida
                       </button>
                       <p className="text-[11px] text-zinc-500">
-                        Suma este producto a la comanda rápida de{" "}
+                        Suma este producto a la comanda de{" "}
                         <span className="font-semibold">Mostrador</span> hasta
                         que la confirmes.
                       </p>
@@ -488,12 +355,11 @@
 
         const agregarItem = () => {
           if (!productosActivos.length) return;
-          const defaultProductId = productosActivos[0].id;
           setItems((prev) => [
             ...prev,
             {
               idLinea: Date.now() + Math.random(),
-              productoId: defaultProductId,
+              productoId: productosActivos[0].id,
               cantidad: 1,
             },
           ]);
@@ -519,15 +385,11 @@
           setItems((prev) => prev.filter((it) => it.idLinea !== idLinea));
         };
 
-        const calcularTotal = () => {
-          return items.reduce((acc, it) => {
-            const prod = productos.find((p) => p.id === it.productoId);
-            if (!prod || !prod.precioVenta) return acc;
-            return acc + prod.precioVenta * it.cantidad;
-          }, 0);
-        };
-
-        const total = calcularTotal();
+        const total = items.reduce((acc, it) => {
+          const prod = productos.find((p) => p.id === it.productoId);
+          if (!prod || !prod.precioVenta) return acc;
+          return acc + prod.precioVenta * it.cantidad;
+        }, 0);
 
         const guardarComanda = () => {
           if (!items.length) {
@@ -548,7 +410,7 @@
                 productoId: it.productoId,
                 nombre: prod ? prod.nombre : "Producto",
                 cantidad: it.cantidad,
-                precioUnitario: prod ? prod.precioVenta : 0,
+                precioUnitario: prod ? prod.precioVenta || 0 : 0,
               };
             }),
           };
@@ -566,8 +428,7 @@
               <div>
                 <h2 className="text-sm font-semibold">Nueva comanda</h2>
                 <p className="text-xs text-zinc-500">
-                  Armá la comanda, elegí forma de pago y guardala. Abajo podés
-                  cambiar su estado (pendiente, producción, entregada).
+                  Armá la comanda, elegí forma de pago y guardala.
                 </p>
               </div>
               <div className="text-[11px] text-zinc-500">
@@ -668,7 +529,7 @@
                           const prod = productos.find(
                             (p) => p.id === it.productoId
                           );
-                          const precioUnitario = prod ? prod.precioVenta : 0;
+                          const precioUnitario = prod?.precioVenta || 0;
                           const subtotal = precioUnitario * it.cantidad;
                           return (
                             <tr
@@ -786,13 +647,14 @@
                     Guardar comanda
                   </button>
                   <p className="text-[11px] text-zinc-500">
-                    La comanda se guarda en este panel (modo local o
-                    colaborativo según configuración).
+                    La comanda se guarda en el panel (local o nube según
+                    configuración).
                   </p>
                 </div>
               </div>
             </div>
 
+            {/* listado comandas */}
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3 text-xs">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-xs font-semibold text-zinc-800">
@@ -990,12 +852,7 @@
         const actualizarProduccionNota = (prodId, nuevaNota) => {
           setProducciones((prev) =>
             prev.map((p) =>
-              p.id === prodId
-                ? {
-                    ...p,
-                    nota: nuevaNota,
-                  }
-                : p
+              p.id === prodId ? { ...p, nota: nuevaNota } : p
             )
           );
         };
@@ -1021,8 +878,7 @@
                   Producción y armado de stock
                 </h2>
                 <p className="text-xs text-zinc-500">
-                  Registrá las producciones para tener una referencia de stock
-                  por producto.
+                  Registrá las producciones para tener una referencia de stock.
                 </p>
               </div>
               <div className="text-[11px] text-zinc-500">
@@ -1165,8 +1021,7 @@
                     Guardar producción
                   </h3>
                   <p className="text-[11px] text-zinc-500 mb-2">
-                    Cada producción suma unidades o kilos al stock estimado. El
-                    stock se descuenta al registrar comandas.
+                    Cada producción suma unidades o kilos al stock estimado.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -1177,13 +1032,13 @@
                     Guardar producción
                   </button>
                   <p className="text-[11px] text-zinc-500">
-                    Los datos quedan guardados en el panel (local o nube según
-                    configuración).
+                    Los datos quedan guardados en el panel (local o nube).
                   </p>
                 </div>
               </div>
             </div>
 
+            {/* producciones guardadas */}
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3 text-xs">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-xs font-semibold text-zinc-800">
@@ -1357,7 +1212,6 @@
           });
 
           const totalGeneral = totalEfectivo + totalMP + totalOtro;
-
           return { totalEfectivo, totalMP, totalOtro, totalGeneral };
         }, [comandas]);
 
@@ -1386,8 +1240,7 @@
           <section className="mt-4">
             <h2 className="text-sm font-semibold mb-1">Caja y cashflow</h2>
             <p className="text-xs text-zinc-500 mb-3">
-              Resumen de ventas por forma de pago, tomando solo las comandas
-              ENTREGADAS.
+              Solo suma comandas en estado ENTREGADA.
             </p>
 
             <div className="grid gap-4 md:grid-cols-4 text-xs mb-4">
@@ -1506,7 +1359,7 @@
         );
       }
 
-      // --- Pantalla Editor (con contraseña) ---
+      // --- Pantalla Editor ---
       function PantallaEditor({
         productos,
         setProductos,
@@ -1588,8 +1441,8 @@
                 Editor avanzado (bloqueado)
               </h2>
               <p className="text-xs text-zinc-500 mb-3">
-                Acá podés modificar productos, eliminar comandas y producciones,
-                y actualizar precios. Protegido por contraseña.
+                Modificá productos, precios y limpiá registros. Protegido por
+                contraseña.
               </p>
               <div className="rounded-2xl border border-zinc-200 bg-white p-3 text-xs">
                 <label className="block text-[11px] text-zinc-500 mb-1">
@@ -1609,8 +1462,7 @@
                 </button>
                 <p className="text-[11px] text-zinc-500 mt-2">
                   Contraseña demo:{" "}
-                  <span className="font-mono">maderna2025</span> (podés
-                  cambiarla en el código).
+                  <span className="font-mono">maderna2025</span>
                 </p>
               </div>
             </section>
@@ -1623,8 +1475,8 @@
               Editor avanzado (desbloqueado)
             </h2>
             <p className="text-xs text-zinc-500 mb-3">
-              Ajustá productos, precios, colores, unidad de stock y limpiá
-              registros de comandas o producciones si hace falta.
+              Ajustá productos, precios, colores y limpiá comandas /
+              producciones.
             </p>
 
             <div className="grid gap-4 md:grid-cols-2 text-xs">
@@ -1762,7 +1614,7 @@
                         .map((c) => (
                           <div
                             key={c.id}
-                            className="flex justify_between items-center border-b border-zinc-200 py-1"
+                            className="flex justify-between items-center border-b border-zinc-200 py-1"
                           >
                             <div>
                               <p className="text-[11px] text-zinc-800">
@@ -1806,7 +1658,7 @@
                         .map((p) => (
                           <div
                             key={p.id}
-                            className="flex justify_between items-center border-b border-zinc-200 py-1"
+                            className="flex justify-between items-center border-b border-zinc-200 py-1"
                           >
                             <div>
                               <p className="text-[11px] text-zinc-800">
@@ -1838,120 +1690,89 @@
         );
       }
 
-      // --- App principal (local + colaborativo opcional) ---
+      // --- App principal ---
       function App() {
         const [screen, setScreen] = useState("productos");
 
         const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
         const [comandas, setComandas] = useState([]);
         const [producciones, setProducciones] = useState([]);
-
         const [borradorComandaRapida, setBorradorComandaRapida] =
           useState(null);
 
         const [usaNube, setUsaNube] = useState(false);
         const [cargandoInicial, setCargandoInicial] = useState(true);
 
+        // Carga inicial + realtime Firebase
         useEffect(() => {
           let cancelado = false;
+          let unsubscribe = null;
+
+          function cargarLocal() {
+            const prods = cargarDesdeStorage(
+              STORAGE_KEYS.productos,
+              PRODUCTOS_INICIALES
+            );
+            const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
+            const prods2 = cargarDesdeStorage(
+              STORAGE_KEYS.producciones,
+              []
+            );
+            if (cancelado) return;
+            setProductos(prods);
+            setComandas(cmds);
+            setProducciones(prods2);
+            setUsaNube(false);
+            setCargandoInicial(false);
+            console.log("Modo local (localStorage).");
+          }
 
           async function initDatos() {
             try {
               if (nubeDisponible()) {
-  console.log("Iniciando modo colaborativo realtime…");
+                console.log("Iniciando modo colaborativo realtime…");
+                const docRef = db
+                  .collection(PANEL_COLLECTION)
+                  .doc(PANEL_DOC_ID);
 
-  const docRef = db
-    .collection(PANEL_COLLECTION)
-    .doc(PANEL_DOC_ID);
+                unsubscribe = docRef.onSnapshot(
+                  (snap) => {
+                    if (cancelado) return;
 
-  const unsubscribe = docRef.onSnapshot(
-    (snap) => {
-      if (cancelado) return;
+                    if (!snap.exists) {
+                      console.log(
+                        "Doc no existe, creando datos iniciales en Firebase…"
+                      );
+                      docRef.set({
+                        productos: PRODUCTOS_INICIALES,
+                        comandas: [],
+                        producciones: [],
+                      });
+                      return;
+                    }
 
-      if (!snap.exists) {
-        console.log("Documento no existe, creando datos iniciales…");
-        docRef.set({
-          productos: PRODUCTOS_INICIALES,
-          comandas: [],
-          producciones: []
-        });
-        return;
-      }
-
-      const data = snap.data();
-
-      setProductos(data.productos || PRODUCTOS_INICIALES);
-      setComandas(data.comandas || []);
-      setProducciones(data.producciones || []);
-
-      setUsaNube(true);
-      setCargando(false);
-    },
-    (error) => {
-      console.error("Error onSnapshot:", error);
-
-      if (!cancelado) {
-        const prods = cargarDesdeStorage(
-          STORAGE_KEYS.productos,
-          PRODUCTOS_INICIALES
-        );
-        const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
-        const prods2 = cargarDesdeStorage(
-          STORAGE_KEYS.producciones,
-          []
-        );
-
-        setProductos(prods);
-        setComandas(cmds);
-        setProducciones(prods2);
-
-        setUsaNube(false);
-        setCargando(false);
-      }
-    }
-  );
-
-  // cleanup
-  return () => {
-    cancelado = true;
-    unsubscribe && unsubscribe();
-  };
-}
-
-                const prods = cargarDesdeStorage(
-                  STORAGE_KEYS.productos,
-                  PRODUCTOS_INICIALES
+                    const data = snap.data() || {};
+                    setProductos(
+                      data.productos || PRODUCTOS_INICIALES
+                    );
+                    setComandas(data.comandas || []);
+                    setProducciones(data.producciones || []);
+                    setUsaNube(true);
+                    setCargandoInicial(false);
+                  },
+                  (error) => {
+                    console.error("Error onSnapshot:", error);
+                    if (!cancelado) {
+                      cargarLocal();
+                    }
+                  }
                 );
-                const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
-                const prods2 = cargarDesdeStorage(
-                  STORAGE_KEYS.producciones,
-                  []
-                );
-                if (cancelado) return;
-                setProductos(prods);
-                setComandas(cmds);
-                setProducciones(prods2);
-                setUsaNube(false);
-                console.log("Modo local (localStorage).");
+              } else {
+                cargarLocal();
               }
             } catch (e) {
               console.warn("Error en init, se usa modo local:", e);
-              const prods = cargarDesdeStorage(
-                STORAGE_KEYS.productos,
-                PRODUCTOS_INICIALES
-              );
-              const cmds = cargarDesdeStorage(STORAGE_KEYS.comandas, []);
-              const prods2 = cargarDesdeStorage(
-                STORAGE_KEYS.producciones,
-                []
-              );
-              if (cancelado) return;
-              setProductos(prods);
-              setComandas(cmds);
-              setProducciones(prods2);
-              setUsaNube(false);
-            } finally {
-              if (!cancelado) setCargandoInicial(false);
+              cargarLocal();
             }
           }
 
@@ -1959,9 +1780,11 @@
 
           return () => {
             cancelado = true;
+            if (unsubscribe) unsubscribe();
           };
         }, []);
 
+        // Sincronizar cambios -> nube o local
         useEffect(() => {
           if (cargandoInicial) return;
           if (usaNube) {
@@ -1989,6 +1812,7 @@
           }
         }, [producciones, usaNube, cargandoInicial]);
 
+        // Stock estimado
         const stockPorProducto = useMemo(() => {
           const stock = {};
           producciones.forEach((prd) => {
@@ -2004,6 +1828,7 @@
           return stock;
         }, [producciones, comandas]);
 
+        // Comanda rápida desde Productos
         const agregarProductoABorrador = (productoId, cantidad) => {
           const prod = productos.find((p) => p.id === productoId);
           if (!prod) return;
@@ -2040,8 +1865,7 @@
 
         const confirmarBorradorComandaRapida = () => {
           if (
-            !borradorComandaRapida ||
-            !borradorComandaRapida.items ||
+            !borradorComandaRapida?.items ||
             borradorComandaRapida.items.length === 0
           ) {
             alert("No hay productos en la comanda rápida.");
@@ -2089,7 +1913,7 @@
         if (cargandoInicial) {
           return (
             <div className="max-w-6xl mx-auto px-4 pb-10">
-              <Header screen={screen} setScreen={setScreen} />
+              <Header screen={screen} setScreen={setScreen} usaNube={usaNube} />
               <main className="pt-4 text-xs text-zinc-500">
                 Cargando datos del panel...
               </main>
@@ -2099,7 +1923,7 @@
 
         return (
           <div className="max-w-6xl mx-auto px-4 pb-10">
-            <Header screen={screen} setScreen={setScreen} />
+            <Header screen={screen} setScreen={setScreen} usaNube={usaNube} />
 
             <main className="pt-4">
               {screen === "productos" && (
@@ -2143,10 +1967,7 @@
                   La Esquina de Maderna · Panel interno (no es lista de precios
                   oficial).
                 </span>
-                <span>
-                  Método Fermento · {new Date().getFullYear()} ·{" "}
-                  {usaNube ? "Modo colaborativo (Firebase)" : "Modo local"}
-                </span>
+                <span>Método Fermento · {new Date().getFullYear()}</span>
               </footer>
             </main>
           </div>
