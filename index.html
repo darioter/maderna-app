@@ -2062,33 +2062,18 @@
           })();
         }, []);
 
-        useEffect(() => {
-          if (!cargando && !usaNube) {
-            guardarEnStorage(STORAGE_KEYS.productos, productos);
-          }
-        }, [productos, cargando, usaNube]);
+        // Sincronizar SIEMPRE con Firebase (si está disponible),
+// así se crea/actualiza el documento y funciona en modo colaborativo.
+useEffect(() => {
+  if (!cargando && db) {
+    guardarPanelParcialEnNube({
+      productos,
+      comandas,
+      producciones,
+    });
+  }
+}, [productos, comandas, producciones, cargando]);
 
-        useEffect(() => {
-          if (!cargando && !usaNube) {
-            guardarEnStorage(STORAGE_KEYS.comandas, comandas);
-          }
-        }, [comandas, cargando, usaNube]);
-
-        useEffect(() => {
-          if (!cargando && !usaNube) {
-            guardarEnStorage(STORAGE_KEYS.producciones, producciones);
-          }
-        }, [producciones, cargando, usaNube]);
-
-        useEffect(() => {
-          if (!cargando && usaNube) {
-            guardarPanelParcialEnNube({
-              productos,
-              comandas,
-              producciones,
-            });
-          }
-        }, [productos, comandas, producciones, cargando, usaNube]);
 
         const stockPorProducto = useMemo(() => {
           const stock = {};
