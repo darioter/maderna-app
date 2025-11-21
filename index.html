@@ -39,7 +39,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
     <script type="text/babel" data-presets="env,react">
-      const { useState, useEffect, useMemo } = React;
+      const { useState, useEffect, useMemo, useRef } = React;
 
       // --- Configuración Firebase ---
       const firebaseConfig = {
@@ -64,43 +64,7 @@
       const PANEL_COLLECTION = "panel_maderna";
       const PANEL_DOC_ID = "panel_unico";
 
-      async function cargarPanelDesdeNube() {
-        if (!db) return null;
-        try {
-          const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
-          const snap = await docRef.get();
-          if (!snap.exists) {
-            return null;
-          }
-          const data = snap.data();
-          return {
-            productos: data.productos || [],
-            comandas: data.comandas || [],
-            producciones: data.producciones || [],
-          };
-        } catch (e) {
-          console.error("Error cargando panel desde Firestore:", e);
-          return null;
-        }
-      }
-
-      async function guardarPanelParcialEnNube(partial) {
-        if (!db) return;
-        try {
-          const docRef = db.collection(PANEL_COLLECTION).doc(PANEL_DOC_ID);
-          await docRef.set(
-            {
-              ...partial,
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
-        } catch (e) {
-          console.error("Error guardando panel en Firestore:", e);
-        }
-      }
-
-      // --- Configuración de storage local (backup) ---
+      // --- Backup local (por si falla la nube) ---
       const STORAGE_KEYS = {
         productos: "maderna_productos_v1",
         comandas: "maderna_comandas_v1",
@@ -112,8 +76,7 @@
         try {
           const raw = localStorage.getItem(clave);
           if (!raw) return defaultValue;
-          const parsed = JSON.parse(raw);
-          return parsed;
+          return JSON.parse(raw);
         } catch (e) {
           console.error("Error leyendo storage", clave, e);
           return defaultValue;
@@ -128,7 +91,7 @@
         }
       }
 
-      // --- Productos iniciales con tus colores + unidad de stock ---
+      // --- Productos iniciales ---
       const PRODUCTOS_INICIALES = [
         {
           id: 1,
@@ -451,8 +414,8 @@
             </h2>
             <p className="text-xs text-zinc-600 mb-3">
               El color de cada producto es solo una referencia visual para
-              identificarlo en la app. Podés ir armando una comanda rápida desde
-              acá y luego confirmarla abajo.
+              identificarlo. Podés ir armando una comanda rápida desde acá y
+              luego confirmarla abajo.
             </p>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -617,7 +580,7 @@
             return;
           }
 
-          // Validación de stock antes de guardar
+          // Validar stock antes de guardar
           if (stockPorProducto) {
             const pedidos = {};
             items.forEach((it) => {
@@ -1999,82 +1962,194 @@
 
         const [borradorComandaRapida, setBorradorComandaRapida] = useState(null);
 
+        // Para evitar loop de escritura/lectura con Firestore
+        const remoteUpdateRef = useRef(false);
+
+        // Carga inicial + suscripción en tiempo real
         useEffect(() => {
-          (async () => {
-            const dataNube = await cargarPanelDesdeNube();
-            if (dataNube) {
-              setProductos(
-                dataNube.productos && dataNube.productos.length
-                  ? dataNube.productos
-                  : PRODUCTOS_INICIALES
-              );
-              setComandas(dataNube.comandas || []);
-              setProducciones(dataNube.producciones || []);
-              setUsaNube(true);
-              setCargando(false);
-            } else {
-              const locProductos = cargarDesdeStorage(
+          let cancelado = false;
+          let unsubscribe = null;
+
+          async function init() {
+            if (!db) {
+              console.log("Sin Firebase, usando solo localStorage");
+              const prods = cargarDesdeStorage(
                 STORAGE_KEYS.productos,
                 PRODUCTOS_INICIALES
               );
-              const locComandas = cargarDesdeStorage(
+              const cmds = cargarDesdeStorage(
                 STORAGE_KEYS.comandas,
                 []
               );
-              const locProducciones = cargarDesdeStorage(
+              const prods2 = cargarDesdeStorage(
                 STORAGE_KEYS.producciones,
                 []
               );
-              setProductos(locProductos);
-              setComandas(locComandas);
-              setProducciones(locProducciones);
+              if (cancelado) return;
+              setProductos(prods);
+              setComandas(cmds);
+              setProducciones(prods2);
               setUsaNube(false);
               setCargando(false);
+              return;
             }
 
-            if (db) {
-              const unsub = db
-                .collection(PANEL_COLLECTION)
-                .doc(PANEL_DOC_ID)
-                .onSnapshot(
-                  (snap) => {
-                    if (!snap.exists) return;
-                    const data = snap.data();
-                    setProductos(
-                      data.productos && data.productos.length
-                        ? data.productos
-                        : PRODUCTOS_INICIALES
-                    );
-                    setComandas(data.comandas || []);
-                    setProducciones(data.producciones || []);
-                    setUsaNube(true);
-                    setCargando(false);
-                  },
-                  (err) => {
-                    console.error("Error onSnapshot:", err);
-                    setUsaNube(false);
-                  }
+            console.log("Iniciando modo colaborativo realtime…");
+
+            const docRef = db
+              .collection(PANEL_COLLECTION)
+              .doc(PANEL_DOC_ID);
+
+            unsubscribe = docRef.onSnapshot(
+              async (snap) => {
+                if (cancelado) return;
+
+                if (!snap.exists) {
+                  console.log(
+                    "Documento no existe, creando datos iniciales en Firestore…"
+                  );
+                  const panelInicial = {
+                    productos: PRODUCTOS_INICIALES,
+                    comandas: [],
+                    producciones: [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                  await docRef.set(panelInicial);
+                  if (cancelado) return;
+
+                  remoteUpdateRef.current = true;
+                  setProductos(panelInicial.productos);
+                  setComandas(panelInicial.comandas);
+                  setProducciones(panelInicial.producciones);
+                  setUsaNube(true);
+                  setCargando(false);
+
+                  guardarEnStorage(
+                    STORAGE_KEYS.productos,
+                    panelInicial.productos
+                  );
+                  guardarEnStorage(
+                    STORAGE_KEYS.comandas,
+                    panelInicial.comandas
+                  );
+                  guardarEnStorage(
+                    STORAGE_KEYS.producciones,
+                    panelInicial.producciones
+                  );
+                  return;
+                }
+
+                const data = snap.data() || {};
+                console.log("Snapshot recibido desde Firestore");
+
+                const prods =
+                  data.productos && data.productos.length
+                    ? data.productos
+                    : PRODUCTOS_INICIALES;
+                const cmds = data.comandas || [];
+                const prods2 = data.producciones || [];
+
+                remoteUpdateRef.current = true;
+                setProductos(prods);
+                setComandas(cmds);
+                setProducciones(prods2);
+                setUsaNube(true);
+                setCargando(false);
+
+                guardarEnStorage(STORAGE_KEYS.productos, prods);
+                guardarEnStorage(STORAGE_KEYS.comandas, cmds);
+                guardarEnStorage(STORAGE_KEYS.producciones, prods2);
+              },
+              (error) => {
+                console.error("Error onSnapshot:", error);
+
+                if (cancelado) return;
+
+                const prods = cargarDesdeStorage(
+                  STORAGE_KEYS.productos,
+                  PRODUCTOS_INICIALES
                 );
-              return () => {
-                unsub && unsub();
-              };
-            }
-          })();
+                const cmds = cargarDesdeStorage(
+                  STORAGE_KEYS.comandas,
+                  []
+                );
+                const prods2 = cargarDesdeStorage(
+                  STORAGE_KEYS.producciones,
+                  []
+                );
+
+                setProductos(prods);
+                setComandas(cmds);
+                setProducciones(prods2);
+                setUsaNube(false);
+                setCargando(false);
+              }
+            );
+          }
+
+          init();
+
+          return () => {
+            cancelado = true;
+            if (unsubscribe) unsubscribe();
+          };
         }, []);
 
-        // Sincronizar SIEMPRE con Firebase (si está disponible),
-// así se crea/actualiza el documento y funciona en modo colaborativo.
-useEffect(() => {
-  if (!cargando && db) {
-    guardarPanelParcialEnNube({
-      productos,
-      comandas,
-      producciones,
-    });
-  }
-}, [productos, comandas, producciones, cargando]);
+        // Guardar en localStorage si no estamos usando nube
+        useEffect(() => {
+          if (cargando) return;
+          if (usaNube) return;
+          guardarEnStorage(STORAGE_KEYS.productos, productos);
+        }, [productos, cargando, usaNube]);
 
+        useEffect(() => {
+          if (cargando) return;
+          if (usaNube) return;
+          guardarEnStorage(STORAGE_KEYS.comandas, comandas);
+        }, [comandas, cargando, usaNube]);
 
+        useEffect(() => {
+          if (cargando) return;
+          if (usaNube) return;
+          guardarEnStorage(STORAGE_KEYS.producciones, producciones);
+        }, [producciones, cargando, usaNube]);
+
+        // Guardar cambios en Firestore (evitando loop con snapshot)
+        useEffect(() => {
+          if (cargando) return;
+          if (!db) return;
+          if (!usaNube) return;
+
+          // Si el cambio vino de Firestore, no volver a escribir
+          if (remoteUpdateRef.current) {
+            remoteUpdateRef.current = false;
+            return;
+          }
+
+          const docRef = db
+            .collection(PANEL_COLLECTION)
+            .doc(PANEL_DOC_ID);
+
+          docRef
+            .set(
+              {
+                productos,
+                comandas,
+                producciones,
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            )
+            .then(() => {
+              console.log("Panel actualizado en Firestore");
+            })
+            .catch((e) => {
+              console.error("Error guardando en Firestore:", e);
+            });
+        }, [productos, comandas, producciones, cargando, usaNube]);
+
+        // stock acumulado (producciones - comandas)
         const stockPorProducto = useMemo(() => {
           const stock = {};
           producciones.forEach((prd) => {
@@ -2155,7 +2230,6 @@ useEffect(() => {
             return;
           }
 
-          // Validación de stock para la comanda rápida completa
           if (stockPorProducto) {
             const pedidos = {};
             borradorComandaRapida.items.forEach((it) => {
@@ -2198,7 +2272,9 @@ useEffect(() => {
             fecha: ahora.toISOString(),
             cliente: borradorComandaRapida.cliente || "Mostrador",
             formaPago: borradorComandaRapida.formaPago || "efectivo",
-            nota: borradorComandaRapida.nota || "Comanda rápida desde Productos",
+            nota:
+              borradorComandaRapida.nota ||
+              "Comanda rápida desde Productos",
             status: "pendiente",
             items: borradorComandaRapida.items.map((it) => ({
               productoId: it.productoId,
