@@ -73,6 +73,101 @@
         gastosVariables: "maderna_gastos_variables_v1",
       };
 
+
+// --- Reglas de combos + descuentos ---
+// IDs de categorías (ajustables)
+const COMBO_MILANESAS_IDS = [1, 2, 3, 4];
+const COMBO_PAPAS_IDS = [6, 7, 8];
+const COMBO_DESCUENTO_PAPAS_PCT = 10; // 10% sobre papas si hay milanesa + papas
+
+function toNum(n, def = 0) {
+  const x = Number(n);
+  return Number.isFinite(x) ? x : def;
+}
+
+function calcSubtotal(items) {
+  return (items || []).reduce(
+    (acc, it) => acc + toNum(it.cantidad) * toNum(it.precioUnitario),
+    0
+  );
+}
+
+function aplicarComboMilanesaPapas(items, productos) {
+  // Devuelve items ajustados con precioUnitarioCalc y descuentoAutoPct
+  const lista = Array.isArray(items) ? items : [];
+  const hasMila = lista.some((it) =>
+    COMBO_MILANESAS_IDS.includes(Number(it.productoId))
+  );
+  const hasPapa = lista.some((it) =>
+    COMBO_PAPAS_IDS.includes(Number(it.productoId))
+  );
+  const aplica = hasMila && hasPapa;
+
+  const ajustados = lista.map((it) => {
+    const pid = Number(it.productoId);
+    const prod = (productos || []).find((p) => Number(p.id) === pid);
+    const base = prod ? toNum(prod.precioVenta, 0) : 0;
+    const esPapa = COMBO_PAPAS_IDS.includes(pid);
+    const pct = aplica && esPapa ? COMBO_DESCUENTO_PAPAS_PCT : 0;
+    const unit = pct ? base * (1 - pct / 100) : base;
+    return {
+      ...it,
+      productoId: pid,
+      precioUnitarioBase: base,
+      precioUnitarioCalc: unit,
+      descuentoAutoPct: pct,
+    };
+  });
+
+  const totalBruto = ajustados.reduce(
+    (acc, it) => acc + toNum(it.cantidad) * toNum(it.precioUnitarioBase),
+    0
+  );
+  const totalConCombo = ajustados.reduce(
+    (acc, it) => acc + toNum(it.cantidad) * toNum(it.precioUnitarioCalc),
+    0
+  );
+
+  return {
+    itemsAjustados: ajustados,
+    totalBruto,
+    totalConCombo,
+    descuentoComboARS: Math.max(0, totalBruto - totalConCombo),
+    aplica,
+  };
+}
+
+function calcularTotalFinalConDescuentoManual(totalBase, tipo, valor) {
+  const t = String(tipo || "none");
+  const v = toNum(valor, 0);
+  if (t === "pct") {
+    const desc = Math.max(0, Math.min(100, v));
+    return {
+      descuentoARS: (totalBase * desc) / 100,
+      totalFinal: Math.max(0, totalBase - (totalBase * desc) / 100),
+    };
+  }
+  if (t === "ars") {
+    const desc = Math.max(0, v);
+    return {
+      descuentoARS: Math.min(totalBase, desc),
+      totalFinal: Math.max(0, totalBase - Math.min(totalBase, desc)),
+    };
+  }
+  return { descuentoARS: 0, totalFinal: totalBase };
+}
+
+function totalComandaNet(c) {
+  if (!c) return 0;
+  const tf = toNum(c.totalFinal, NaN);
+  if (Number.isFinite(tf)) return tf;
+  // fallback viejo
+  return (c.items || []).reduce(
+    (acc, it) => acc + toNum(it.cantidad) * toNum(it.precioUnitario),
+    0
+  );
+}
+
       function cargarDesdeStorage(clave, defaultValue) {
         if (typeof localStorage === "undefined") return defaultValue;
         try {
@@ -103,7 +198,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 2,
@@ -113,7 +208,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 3,
@@ -123,7 +218,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 4,
@@ -133,7 +228,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 5,
@@ -153,7 +248,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 7,
@@ -163,7 +258,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 8,
@@ -173,7 +268,7 @@
           precioCosto: 0,
           stockCritico: 0,
           activo: true,
-          unidadStock: "un",
+          unidadStock: "kg",
         },
         {
           id: 9,
@@ -532,6 +627,10 @@
         const [items, setItems] = useState([]);
         const [nota, setNota] = useState("");
 
+        // Descuento manual por comanda (opcional)
+        const [descuentoManualTipo, setDescuentoManualTipo] = useState("none");
+        const [descuentoManualValor, setDescuentoManualValor] = useState(0);
+
         const productosActivos = productos.filter((p) => p.activo);
 
         const agregarItem = () => {
@@ -555,7 +654,9 @@
                     ...it,
                     [campo]:
                       campo === "cantidad"
-                        ? Math.max(1, Number(valor) || 1)
+                        ? Math.max(0.01, Number(valor) || 0.01)
+                        : campo === "productoId"
+                        ? Number(valor)
                         : Number(valor),
                   }
                 : it
@@ -567,15 +668,23 @@
           setItems((prev) => prev.filter((it) => it.idLinea !== idLinea));
         };
 
-        const calcularTotal = () => {
-          return items.reduce((acc, it) => {
-            const prod = productos.find((p) => p.id === it.productoId);
-            if (!prod || !prod.precioVenta) return acc;
-            return acc + prod.precioVenta * it.cantidad;
-          }, 0);
-        };
 
-        const total = calcularTotal();
+const comboCalc = useMemo(
+  () => aplicarComboMilanesaPapas(items, productos),
+  [items, productos]
+);
+
+const descCalc = useMemo(
+  () =>
+    calcularTotalFinalConDescuentoManual(
+      comboCalc.totalConCombo,
+      descuentoManualTipo,
+      descuentoManualValor
+    ),
+  [comboCalc.totalConCombo, descuentoManualTipo, descuentoManualValor]
+);
+
+const total = descCalc.totalFinal;
 
         const guardarComanda = () => {
           if (!items.length) {
@@ -614,29 +723,58 @@
             }
           }
 
-          const ahora = new Date();
-          const comanda = {
-            id: "CMD-" + ahora.getTime(),
-            fecha: ahora.toISOString(),
-            cliente: cliente || "Mostrador",
-            formaPago,
-            nota,
-            status: "pendiente",
-            items: items.map((it) => {
-              const prod = productos.find((p) => p.id === it.productoId);
-              return {
-                productoId: it.productoId,
-                nombre: prod ? prod.nombre : "Producto",
-                cantidad: it.cantidad,
-                precioUnitario: prod ? prod.precioVenta : 0,
-              };
-            }),
-          };
-          setComandas((prev) => [...prev, comanda]);
+
+const ahora = new Date();
+
+// Aplicar combos automáticos (milanesa + papas => 10% en papas)
+const combo = aplicarComboMilanesaPapas(items, productos);
+const desc = calcularTotalFinalConDescuentoManual(
+  combo.totalConCombo,
+  descuentoManualTipo,
+  descuentoManualValor
+);
+
+const comanda = {
+  id: "CMD-" + ahora.getTime(),
+  fecha: ahora.toISOString(),
+  cliente: cliente || "Mostrador",
+  formaPago,
+  nota,
+  status: "pendiente",
+
+  // Totales para cashflow
+  totalBruto: combo.totalBruto,
+  totalConCombo: combo.totalConCombo,
+  descuentoComboARS: combo.descuentoComboARS,
+  descuentoManualTipo,
+  descuentoManualValor: toNum(descuentoManualValor, 0),
+  descuentoManualARS: desc.descuentoARS,
+  totalFinal: desc.totalFinal,
+
+  items: combo.itemsAjustados.map((it) => {
+    const prod = productos.find((p) => p.id === it.productoId);
+    return {
+      productoId: it.productoId,
+      nombre: prod ? prod.nombre : "Producto",
+      cantidad: it.cantidad,
+
+      // Precio unitario final (con combo auto si aplica)
+      precioUnitario: toNum(it.precioUnitarioCalc, 0),
+
+      // Referencias
+      precioUnitarioBase: toNum(it.precioUnitarioBase, 0),
+      descuentoAutoPct: toNum(it.descuentoAutoPct, 0),
+    };
+  }),
+};
+
+setComandas((prev) => [...prev, comanda]);
           setCliente("");
           setFormaPago("efectivo");
           setItems([]);
           setNota("");
+          setDescuentoManualTipo("none");
+          setDescuentoManualValor(0);
           alert("Comanda guardada.");
         };
 
@@ -744,12 +882,20 @@
                           </td>
                         </tr>
                       ) : (
-                        items.map((it) => {
-                          const prod = productos.find(
-                            (p) => p.id === it.productoId
-                          );
-                          const precioUnitario = prod ? prod.precioVenta : 0;
-                          const subtotal = precioUnitario * it.cantidad;
+                        
+items.map((it) => {
+    const prod = productos.find(
+      (p) => p.id === it.productoId
+    );
+    const adj = (comboCalc.itemsAjustados || []).find(
+      (x) => x.idLinea === it.idLinea
+    );
+    const precioBase = prod ? toNum(prod.precioVenta, 0) : 0;
+    const precioUnitario = adj
+      ? toNum(adj.precioUnitarioCalc, 0)
+      : precioBase;
+    const subtotal = precioUnitario * toNum(it.cantidad, 0);
+    const tieneDescAuto = adj && toNum(adj.descuentoAutoPct, 0) > 0;
                           return (
                             <tr
                               key={it.idLinea}
@@ -777,7 +923,8 @@
                               <td className="px-2 py-1">
                                 <input
                                   type="number"
-                                  min="1"
+                                  min="0.01"
+                                  step="0.01"
                                   value={it.cantidad}
                                   onChange={(e) =>
                                     actualizarItem(
@@ -790,9 +937,18 @@
                                 />
                               </td>
                               <td className="px-2 py-1 text-right">
-                                {precioUnitario
-                                  ? `ARS ${precioUnitario.toFixed(0)}`
-                                  : "-"}
+                                {precioUnitario ? (
+                                  <div className="flex flex-col items-end leading-tight">
+                                    <span>{`ARS ${precioUnitario.toFixed(0)}`}</span>
+                                    {tieneDescAuto && (
+                                      <span className="text-[10px] text-amber-700 font-semibold">
+                                        Combo: -{COMBO_DESCUENTO_PAPAS_PCT}% en papas
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  "-"
+                                )}
                               </td>
                               <td className="px-2 py-1 text-right">
                                 {precioUnitario
@@ -840,13 +996,72 @@
                       <span>Ítems</span>
                       <span>{items.length}</span>
                     </div>
+                    <div className="mt-2 rounded-xl border border-zinc-200 bg-white px-3 py-2">
+                      <p className="text-[11px] text-zinc-500 mb-2">Descuento manual (opcional)</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={descuentoManualTipo}
+                          onChange={(e) => setDescuentoManualTipo(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs"
+                        >
+                          <option value="none">Sin descuento</option>
+                          <option value="pct">% sobre total</option>
+                          <option value="ars">ARS fijo</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={descuentoManualValor}
+                          onChange={(e) => setDescuentoManualValor(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs text-right"
+                          placeholder="0"
+                        />
+                      </div>
+                      {descuentoManualTipo !== "none" && (
+                        <p className="text-[10px] text-zinc-500 mt-1">
+                          Se aplica al total ya calculado con combos automáticos.
+                        </p>
+                      )}
+                    </div>
+
+                    {comboCalc.aplica && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p className="text-[11px] text-amber-800 font-semibold">
+                          Combo automático activo
+                        </p>
+                        <p className="text-[11px] text-zinc-700">
+                          Hay milanesa + papas en la comanda ⇒ descuento del{" "}
+                          <strong>{COMBO_DESCUENTO_PAPAS_PCT}%</strong> sobre papas.
+                        </p>
+                        <p className="text-[11px] text-amber-900 mt-1">
+                          Ahorro por combo:{" "}
+                          <strong>ARS {comboCalc.descuentoComboARS.toFixed(0)}</strong>
+                        </p>
+                      </div>
+                    )}
+
                   </div>
 
                   <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
-                    <p className="text-[11px] text-emerald-800">
-                      Total comanda
-                    </p>
-                    <p className="text-2xl font-bold text-emerald-900">
+                    <p className="text-[11px] text-emerald-800">Total comanda</p>
+
+                    <div className="mt-1 space-y-0.5 text-[11px] text-zinc-700">
+                      <div className="flex justify-between">
+                        <span>Subtotal bruto</span>
+                        <span>ARS {comboCalc.totalBruto.toFixed(0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Subtotal con combos</span>
+                        <span>ARS {comboCalc.totalConCombo.toFixed(0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Descuento manual</span>
+                        <span>- ARS {descCalc.descuentoARS.toFixed(0)}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-2xl font-bold text-emerald-900 mt-2">
                       {total ? `ARS ${total.toFixed(0)}` : "-"}
                     </p>
                   </div>
@@ -888,10 +1103,7 @@
                     .slice()
                     .sort((a, b) => (a.fecha > b.fecha ? -1 : 1))
                     .map((c) => {
-                      const totalComanda = c.items.reduce(
-                        (acc, it) => acc + it.cantidad * it.precioUnitario,
-                        0
-                      );
+                      const totalComanda = totalComandaNet(c);
                       const estado = c.status || "entregada";
                       return (
                         <div
@@ -1837,10 +2049,7 @@
           );
 
           entregadas.forEach((c) => {
-            const total = c.items.reduce(
-              (acc, it) => acc + it.cantidad * it.precioUnitario,
-              0
-            );
+            const total = totalComandaNet(c);
             if (c.formaPago === "efectivo") totalEfectivo += total;
             else if (c.formaPago === "mp") totalMP += total;
             else totalOtro += total;
@@ -1867,13 +2076,7 @@
           );
         });
 
-        const ventasMes = entregadasMes.reduce((acc, c) => {
-          const total = c.items.reduce(
-            (sum, it) => sum + it.cantidad * it.precioUnitario,
-            0
-          );
-          return acc + total;
-        }, 0);
+        const ventasMes = entregadasMes.reduce((acc, c) => acc + totalComandaNet(c), 0);
 
         const gastosVariablesMes = (gastosVariables || []).reduce(
           (acc, g) => {
@@ -1912,11 +2115,7 @@
           });
         };
 
-        const calcularTotalComanda = (c) =>
-          c.items.reduce(
-            (acc, it) => acc + it.cantidad * it.precioUnitario,
-            0
-          );
+        const calcularTotalComanda = (c) => totalComandaNet(c);
 
         const nombreMes = hoy.toLocaleDateString("es-AR", {
           month: "long",
@@ -2871,39 +3070,59 @@
             }
           }
 
-          const ahora = new Date();
-          const total = borradorComandaRapida.items.reduce(
-            (acc, it) => acc + it.cantidad * (it.precioUnitario || 0),
-            0
-          );
 
-          const comanda = {
-            id: "CMD-" + ahora.getTime(),
-            fecha: ahora.toISOString(),
-            cliente: borradorComandaRapida.cliente || "Mostrador",
-            formaPago: borradorComandaRapida.formaPago || "efectivo",
-            nota:
-              borradorComandaRapida.nota ||
-              "Comanda rápida desde Productos",
-            status: "pendiente",
-            items: borradorComandaRapida.items.map((it) => ({
-              productoId: it.productoId,
-              nombre:
-                it.nombre ||
-                (productos.find((p) => p.id === it.productoId)?.nombre ||
-                  "Producto"),
-              cantidad: it.cantidad,
-              precioUnitario:
-                it.precioUnitario ||
-                productos.find((p) => p.id === it.productoId)?.precioVenta ||
-                0,
-            })),
-          };
+const ahora = new Date();
+
+const combo = aplicarComboMilanesaPapas(
+  // normalizamos items del borrador
+  (borradorComandaRapida.items || []).map((it, idx) => ({
+    idLinea: it.idLinea || idx + 1,
+    productoId: Number(it.productoId),
+    cantidad: toNum(it.cantidad, 0),
+  })),
+  productos
+);
+
+const desc = calcularTotalFinalConDescuentoManual(
+  combo.totalConCombo,
+  "none",
+  0
+);
+
+const comanda = {
+  id: "CMD-" + ahora.getTime(),
+  fecha: ahora.toISOString(),
+  cliente: borradorComandaRapida.cliente || "Mostrador",
+  formaPago: borradorComandaRapida.formaPago || "efectivo",
+  nota:
+    borradorComandaRapida.nota ||
+    "Comanda rápida desde Productos",
+  status: "pendiente",
+
+  totalBruto: combo.totalBruto,
+  totalConCombo: combo.totalConCombo,
+  descuentoComboARS: combo.descuentoComboARS,
+  descuentoManualTipo: "none",
+  descuentoManualValor: 0,
+  descuentoManualARS: 0,
+  totalFinal: desc.totalFinal,
+
+  items: combo.itemsAjustados.map((it) => ({
+    productoId: it.productoId,
+    nombre:
+      productos.find((p) => p.id === it.productoId)?.nombre ||
+      "Producto",
+    cantidad: it.cantidad,
+    precioUnitario: toNum(it.precioUnitarioCalc, 0),
+    precioUnitarioBase: toNum(it.precioUnitarioBase, 0),
+    descuentoAutoPct: toNum(it.descuentoAutoPct, 0),
+  })),
+};
 
           setComandas((prev) => [...prev, comanda]);
           setBorradorComandaRapida(null);
-          alert(
-            `Comanda rápida guardada. Total estimado: ARS ${total.toFixed(0)}`
+                    alert(
+            `Comanda rápida guardada. Total estimado: ARS ${totalComandaNet(comanda).toFixed(0)}`
           );
         };
 
